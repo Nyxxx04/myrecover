@@ -66,11 +66,6 @@ class ItemCard extends StatelessWidget {
                 Text(item.description, style: text.bodyMedium),
                 const SizedBox(height: 10),
                 _detail('📍 Location', item.location),
-                if (item.hasCoordinates)
-                  _detail(
-                    '📐 Coordinates',
-                    '${item.latitude!.toStringAsFixed(6)}, ${item.longitude!.toStringAsFixed(6)}',
-                  ),
                 _detail('📅 Date', _dateFmt.format(item.date)),
                 _detail('🏷️ Category', item.category),
                 if (showReporter) ...[_detail('📧 Contact', item.contact), _detail('👤 Reporter', item.reporter)],

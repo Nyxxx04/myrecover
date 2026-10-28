@@ -9,6 +9,7 @@ class ItemService {
   static final instance = ItemService._();
 
   final _items = FirebaseFirestore.instance.collection('items');
+  final _returns = FirebaseFirestore.instance.collection('returns');
 
   /// Returned items are deleted, so this doc keeps a running count of them.
   final _stats = FirebaseFirestore.instance.collection('stats').doc('summary');
@@ -67,10 +68,16 @@ class ItemService {
     if (status == 'returned') {
       // The lost and found reports of the same object close together and
       // count as one return.
+      final ids = [id, ?partnerId];
+      final notices = await _returnNotices(ids);
       final batch = FirebaseFirestore.instance.batch()
-        ..delete(_items.doc(id))
         ..set(_stats, {'returned': FieldValue.increment(1)}, SetOptions(merge: true));
-      if (partnerId != null) batch.delete(_items.doc(partnerId));
+      for (final i in ids) {
+        batch.delete(_items.doc(i));
+      }
+      notices.forEach((uid, notice) {
+        batch.set(_returns.doc('${id}_$uid'), {...notice, 'userId': uid, 'returnedAt': FieldValue.serverTimestamp()});
+      });
       await batch.commit();
       return true;
     }
@@ -82,6 +89,30 @@ class ItemService {
     });
     return false;
   }
+
+  /// Who to tell that an item is back with its owner: the finder, the person
+  /// who reported it lost, and anyone whose claim on it was approved.
+  /// Returned items are deleted, so each gets a notice their app picks up.
+  Future<Map<String, Map<String, dynamic>>> _returnNotices(List<String> itemIds) async {
+    final notices = <String, Map<String, dynamic>>{};
+    for (final snap in await Future.wait(itemIds.map((i) => _items.doc(i).get()))) {
+      final data = snap.data();
+      if (data == null) continue;
+      notices[data['userId'] as String] = {
+        'role': data['type'] == 'found' ? 'finder' : 'owner',
+        'itemTitle': data['title'],
+      };
+    }
+    final claims = await FirebaseFirestore.instance.collection('claims').where('itemId', whereIn: itemIds).get();
+    for (final c in claims.docs.where((c) => c.data()['status'] == 'approved')) {
+      notices.putIfAbsent(c.data()['claimantUid'] as String, () => {'role': 'owner', 'itemTitle': c.data()['itemTitle']});
+    }
+    return notices;
+  }
+
+  /// "Your item was returned" notices for [uid] (see [_returnNotices]).
+  Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> returnNoticesFor(String uid) async =>
+      (await _returns.where('userId', isEqualTo: uid).get()).docs;
 
   Future<void> delete(String id) => _items.doc(id).delete();
 

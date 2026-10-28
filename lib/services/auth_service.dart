@@ -46,9 +46,6 @@ class AuthService {
   Future<bool> signInWithGoogle() async {
     final google = GoogleSignIn.instance;
     if (!_googleReady) {
-      if (googleWebClientId.isEmpty) {
-        throw AuthFailure('Google sign-in is not set up yet (googleWebClientId in app_config.dart).');
-      }
       await google.initialize(serverClientId: googleWebClientId, hostedDomain: studentDomain);
       _googleReady = true;
     }

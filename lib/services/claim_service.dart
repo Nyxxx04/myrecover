@@ -133,6 +133,31 @@ class ClaimService {
   Future<void> dismiss(Claim claim) =>
       _claims.doc(claim.id).update({'status': 'dismissed', 'reviewedAt': FieldValue.serverTimestamp()});
 
+  /// Runs the first time an admin opens the app in a new month: deletes
+  /// finished claims (approved / dismissed) from earlier months. Claims still
+  /// waiting for the admin are kept. Returns how many were cleared.
+  Future<int> monthlyCleanup() async {
+    final now = DateTime.now();
+    final month = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    final marker = _db.collection('stats').doc('claimsCleanup');
+    if ((await marker.get()).data()?['month'] == month) return 0;
+
+    final startOfMonth = DateTime(now.year, now.month);
+    final finished = await _claims.where('status', whereIn: ['approved', 'dismissed']).get();
+    final old = finished.docs.where((d) {
+      final created = (d.data()['createdAt'] as Timestamp?)?.toDate();
+      return created != null && created.isBefore(startOfMonth);
+    }).take(450);
+
+    final batch = _db.batch();
+    for (final doc in old) {
+      batch.delete(doc.reference);
+    }
+    batch.set(marker, {'month': month, 'cleared': old.length, 'at': FieldValue.serverTimestamp()});
+    await batch.commit();
+    return old.length;
+  }
+
   Future<void> _setItemClaimStatus(String itemId, String status) async {
     try {
       await _db.collection('items').doc(itemId).update({

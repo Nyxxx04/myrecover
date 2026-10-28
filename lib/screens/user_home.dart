@@ -14,6 +14,7 @@ import '../widgets/animations.dart';
 import '../widgets/item_card.dart';
 import '../widgets/item_list.dart';
 import 'item_form.dart';
+import '../services/update_service.dart';
 
 class UserHome extends StatefulWidget {
   const UserHome({super.key, required this.user});
@@ -33,6 +34,9 @@ class _UserHomeState extends State<UserHome> {
   void initState() {
     super.initState();
     _startWatching();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => UpdateService.checkAndPrompt(context),
+    );
   }
 
   /// Notification permission, the periodic background job, and a first check now.
@@ -46,9 +50,21 @@ class _UserHomeState extends State<UserHome> {
   Widget? _claimFooter(Item item) {
     if (item.isLost) return null;
     final (icon, text, color) = switch (item.claimStatus) {
-      'claimed' => ('🎉', 'Claimed by its owner. Thank you for handing it in!', foundColor),
-      'review' => ('⏳', 'Someone claimed this item. The admin is verifying it.', aiColor),
-      _ when item.isProtected => ('🛡', 'Protected: AI and the admin check anyone who claims this item.', aiColor),
+      'claimed' => (
+        '🎉',
+        'Claimed by its owner. Thank you for handing it in!',
+        foundColor,
+      ),
+      'review' => (
+        '⏳',
+        'Someone claimed this item. The admin is verifying it.',
+        aiColor,
+      ),
+      _ when item.isProtected => (
+        '🛡',
+        'Protected: AI and the admin check anyone who claims this item.',
+        aiColor,
+      ),
       _ => (null, null, null),
     };
     if (text == null) return null;
@@ -58,7 +74,9 @@ class _UserHomeState extends State<UserHome> {
   Future<void> _delete(String id) async {
     if (!await confirmDialog(context, 'Delete this item?')) return;
     await ItemService.instance.delete(id);
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Item deleted.')));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Item deleted.')));
+    }
   }
 
   @override
@@ -68,9 +86,16 @@ class _UserHomeState extends State<UserHome> {
         title: const Text('MyRecover'),
         actions: [
           Center(
-            child: Text(widget.user.username, style: const TextStyle(color: Colors.white70)),
+            child: Text(
+              widget.user.username,
+              style: const TextStyle(color: Colors.white70),
+            ),
           ),
-          IconButton(tooltip: 'Log out', icon: const Icon(Icons.logout), onPressed: AuthService.instance.logout),
+          IconButton(
+            tooltip: 'Log out',
+            icon: const Icon(Icons.logout),
+            onPressed: AuthService.instance.logout,
+          ),
         ],
       ),
       body: FadeIndexedStack(
@@ -105,7 +130,10 @@ class _UserHomeState extends State<UserHome> {
             aiSearch: true,
             itemBuilder: (context, item) => ItemCard(
               item: item,
-              actions: [if (item.userId != widget.user.uid) contactAction(context, item, widget.user)],
+              actions: [
+                if (item.userId != widget.user.uid)
+                  contactAction(context, item, widget.user),
+              ],
             ),
           ),
           ItemForm(
@@ -113,7 +141,9 @@ class _UserHomeState extends State<UserHome> {
             onSaved: () {
               setState(() => _tab = 0);
               MatchWatcher.run();
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Item reported successfully!')));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Item reported successfully!')),
+              );
             },
           ),
         ],
@@ -124,9 +154,18 @@ class _UserHomeState extends State<UserHome> {
           setState(() => _tab = i);
         },
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.inventory_2_outlined), label: 'My Items'),
-          NavigationDestination(icon: Icon(Icons.explore_outlined), label: 'Discover'),
-          NavigationDestination(icon: Icon(Icons.add_circle_outline), label: 'Report Item'),
+          NavigationDestination(
+            icon: Icon(Icons.inventory_2_outlined),
+            label: 'My Items',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.explore_outlined),
+            label: 'Discover',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.add_circle_outline),
+            label: 'Report Item',
+          ),
         ],
       ),
     );

@@ -9,6 +9,7 @@ import '../services/claim_service.dart';
 import '../services/item_service.dart';
 import '../services/match_watcher.dart';
 import '../services/notifier.dart';
+import '../services/update_service.dart';
 import '../theme.dart';
 import '../widgets/ai_widgets.dart';
 import '../widgets/item_card.dart';
@@ -41,6 +42,21 @@ class _AdminHomeState extends State<AdminHome> {
   void initState() {
     super.initState();
     _startWatching();
+    _monthlyCleanup();
+    WidgetsBinding.instance.addPostFrameCallback((_) => UpdateService.checkAndPrompt(context));
+  }
+
+  Future<void> _monthlyCleanup() async {
+    try {
+      final cleared = await ClaimService.instance.monthlyCleanup();
+      if (cleared > 0 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('New month: cleared $cleared finished claim${cleared == 1 ? '' : 's'}.')),
+        );
+      }
+    } catch (_) {
+      // Try again next time the app opens.
+    }
   }
 
   /// Admins can report found items too, so their phone also judges claims

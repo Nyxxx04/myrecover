@@ -38,6 +38,7 @@ class MatchWatcher {
       if (role == 'admin') await _guard(_reviewClaimsAsAdmin);
       await _guard(() => _reportClaimResults(uid, notified));
       await _guard(() => _reportClaimedItems(uid, notified));
+      await _guard(() => _reportReturns(uid, notified));
       await prefs.setStringList(_notifiedKey, notified.toList());
     } catch (e) {
       debugPrint('MatchWatcher: skipped this run: $e'); // e.g. storage unavailable; retry next run
@@ -135,6 +136,25 @@ class MatchWatcher {
         '🎉 The ${item.title} you found has been claimed',
         'Its owner was verified by the admin. Thank you for handing it in!',
       );
+    }
+  }
+
+  /// Finder and owner: told when the admin marks the item as handed back.
+  static Future<void> _reportReturns(String uid, Set<String> notified) async {
+    for (final notice in await ItemService.instance.returnNoticesFor(uid)) {
+      final key = 'returned:${notice.id}';
+      if (notified.add(key)) {
+        final title = notice.data()['itemTitle'] ?? 'item';
+        final isFinder = notice.data()['role'] == 'finder';
+        await Notifier.show(
+          key,
+          isFinder ? '💚 Returned to its rightful owner' : '🎉 Your $title is back with you',
+          isFinder
+              ? 'The $title you found is safely back with its owner. Thank you for handing it in!'
+              : 'Student Affairs marked your $title as returned to you. Glad you got it back!',
+        );
+      }
+      await notice.reference.delete(); // shown once; no need to keep it
     }
   }
 

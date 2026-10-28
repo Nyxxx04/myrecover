@@ -59,6 +59,13 @@ service cloud.firestore {
       allow delete: if isAdmin() || (member() && resource.data.userId == request.auth.uid);
     }
 
+    // "Your item is back with its owner" notices. Returned items are deleted, so
+    // the admin's app leaves one per finder/owner; their app shows it and deletes it.
+    match /returns/{noticeId} {
+      allow create: if isAdmin();
+      allow read, delete: if signedIn() && resource.data.userId == request.auth.uid;
+    }
+
     // A finder's hidden detail for verifying claims. Only the finder and the admin can read it.
     match /secrets/{itemId} {
       allow read: if signedIn() && (resource.data.ownerUid == request.auth.uid || isAdmin());

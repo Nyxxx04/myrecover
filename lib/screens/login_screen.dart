@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../services/update_service.dart';
 import '../theme.dart';
 import '../widgets/animations.dart';
 
@@ -24,6 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     AuthService.instance.warmUp();
+    WidgetsBinding.instance.addPostFrameCallback((_) => UpdateService.checkAndPrompt(context));
   }
 
   @override

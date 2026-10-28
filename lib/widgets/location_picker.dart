@@ -177,14 +177,6 @@ class _LocationPickerState extends State<LocationPicker> {
             ),
           ),
         ),
-        if (_point != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              'Lat ${_point!.latitude.toStringAsFixed(7)}, Lng ${_point!.longitude.toStringAsFixed(7)}',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ),
       ],
     );
   }
