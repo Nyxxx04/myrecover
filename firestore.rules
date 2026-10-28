@@ -1,0 +1,89 @@
+rules_version = '2';
+
+// Paste into Firebase console → Firestore Database → Rules, then Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // A UiTM student signed in with their @student.uitm.edu.my Google account
+    // (Google marks these emails as verified).
+    function isVerifiedStudent() {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.matches('^[^@]+@student[.]uitm[.]edu[.]my$');
+    }
+
+    // Who may use the app: verified UiTM students and admins.
+    function member() {
+      return isVerifiedStudent() || isAdmin();
+    }
+
+    // Profiles. New accounts are always 'user' with a UiTM student email
+    // (created on first Google sign-in); promote admins in the console.
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if signedIn() && request.auth.uid == uid && request.resource.data.role == 'user'
+        && request.auth.token.email.matches('^[^@]+@student[.]uitm[.]edu[.]my$');
+      allow update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.role == resource.data.role;
+    }
+
+    // username → { uid, email }, read before sign-in so users can log in by username.
+    // Create-only, so a taken username can never be overwritten.
+    match /usernames/{username} {
+      allow get: if true;
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+    }
+
+    // Dashboard counters (returned items are deleted, so they are counted here).
+    match /stats/{doc} {
+      allow read, write: if isAdmin();
+    }
+
+    match /items/{itemId} {
+      allow read: if member();
+      allow create: if member()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.type in ['lost', 'found'];
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['title', 'description', 'status', 'claimStatus', 'updatedAt']);
+      allow delete: if isAdmin() || (member() && resource.data.userId == request.auth.uid);
+    }
+
+    // A finder's hidden detail for verifying claims. Only the finder and the admin can read it.
+    match /secrets/{itemId} {
+      allow read: if signedIn() && (resource.data.ownerUid == request.auth.uid || isAdmin());
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+      allow create, update: if member()
+        && request.resource.data.ownerUid == request.auth.uid
+        && get(/databases/$(database)/documents/items/$(itemId)).data.userId == request.auth.uid;
+    }
+
+    // Ownership claims, id "{itemId}_{claimantUid}": one attempt per person per item.
+    // Claims go through the admin: the admin's app runs the AI check and the admin decides.
+    // Finders can't read claims, so finder and claimant stay anonymous to each other.
+    match /claims/{claimId} {
+      allow read: if signedIn() && (resource.data.claimantUid == request.auth.uid || isAdmin());
+      allow create: if member()
+        && claimId == request.resource.data.itemId + '_' + request.auth.uid
+        && request.resource.data.claimantUid == request.auth.uid
+        && request.resource.data.ownerUid != request.auth.uid
+        && request.resource.data.status == 'pending'
+        && get(/databases/$(database)/documents/items/$(request.resource.data.itemId)).data.userId == request.resource.data.ownerUid;
+      allow update: if isAdmin()
+        && request.resource.data.status in ['verified', 'rejected', 'approved', 'dismissed']
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'confidence', 'feedback', 'checkedAt', 'reviewedAt']);
+      allow delete: if isAdmin();
+    }
+  }
+}
