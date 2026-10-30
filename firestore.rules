@@ -20,19 +20,30 @@ service cloud.firestore {
         && request.auth.token.email.matches('^[^@]+@student[.]uitm[.]edu[.]my$');
     }
 
-    // Who may use the app: verified UiTM students and admins.
-    function member() {
-      return isVerifiedStudent() || isAdmin();
+    // Any signed-in Google account (Google marks their emails as verified).
+    function isVerifiedAccount() {
+      return signedIn() && request.auth.token.email_verified == true;
     }
 
-    // Profiles. New accounts are always 'user' with a UiTM student email
-    // (created on first Google sign-in); promote admins in the console.
+    // Who may use the app. For UiTM students only, use isVerifiedStudent() here
+    // and set studentsOnly = true in lib/app_config.dart.
+    function member() {
+      return isVerifiedAccount() || isAdmin();
+    }
+
+    // Profiles. New accounts are always 'user' (created on first Google sign-in);
+    // promote admins in the console.
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
       allow create: if signedIn() && request.auth.uid == uid && request.resource.data.role == 'user'
-        && request.auth.token.email.matches('^[^@]+@student[.]uitm[.]edu[.]my$');
+        && member();
       allow update: if signedIn() && request.auth.uid == uid
         && request.resource.data.role == resource.data.role;
+    }
+
+    // A person's saved notifications. Only they can see or change them.
+    match /users/{uid}/inbox/{entryId} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
     }
 
     // username → { uid, email }, read before sign-in so users can log in by username.
@@ -89,7 +100,7 @@ service cloud.firestore {
       allow update: if isAdmin()
         && request.resource.data.status in ['verified', 'rejected', 'approved', 'dismissed']
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['status', 'confidence', 'feedback', 'checkedAt', 'reviewedAt']);
+             .hasOnly(['status', 'confidence', 'feedback', 'checkedAt', 'reviewedAt', 'handoverCode']);
       allow delete: if isAdmin();
     }
   }

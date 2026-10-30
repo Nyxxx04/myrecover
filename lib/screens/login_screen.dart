@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../app_config.dart';
 import '../services/auth_service.dart';
 import '../services/update_service.dart';
 import '../theme.dart';
@@ -62,7 +63,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return AuthScaffold(
       title: _adminMode ? 'Admin login' : 'Welcome',
-      subtitle: _adminMode ? 'For Student Affairs staff' : 'Sign in with your UiTM student Google account',
+      subtitle: _adminMode ? '' : (studentsOnly ? 'Sign in with your UiTM student Google account' : 'Sign in with your Google account'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -102,7 +103,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
                 child: Text(
-                  _adminMode ? '← Student sign-in' : 'Admin login',
+                  _adminMode ? 'Student sign-in' : 'Admin login',
                   key: ValueKey(_adminMode),
                 ),
               ),
@@ -146,11 +147,12 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
       const SizedBox(height: 10),
-      const Text(
-        'For UiTM students only. Log in using your official student Google account.',
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Colors.grey, fontSize: 13),
-      ),
+      if (studentsOnly)
+        const Text(
+          'For UiTM students only. Log in using your official student Google account.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.grey, fontSize: 13),
+        ),
     ],
   );
 
@@ -198,6 +200,7 @@ class AuthScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: brandGreen,
+      appBar: AppBar(elevation: 0, scrolledUnderElevation: 0, actions: const [ThemeToggle()]),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -237,16 +240,18 @@ class AuthScaffold extends StatelessWidget {
                         Text(
                           title,
                           style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.bold, color: brandGreen),
+                              ?.copyWith(fontWeight: FontWeight.bold, color: context.brandText),
                         ),
                         const SizedBox(height: 4),
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 250),
-                          child: Text(
-                            subtitle,
-                            key: ValueKey(subtitle),
-                            style: const TextStyle(color: Colors.grey),
-                          ),
+                          child: subtitle.isEmpty
+                              ? const SizedBox(width: double.infinity)
+                              : Text(
+                                  subtitle,
+                                  key: ValueKey(subtitle),
+                                  style: const TextStyle(color: Colors.grey),
+                                ),
                         ),
                         const SizedBox(height: 20),
                         child,
@@ -270,15 +275,16 @@ class ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = context.isDark;
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF2F2),
-        border: Border.all(color: const Color(0xFFFECACA)),
+        color: dark ? const Color(0xFF3B1414) : const Color(0xFFFEF2F2),
+        border: Border.all(color: dark ? const Color(0xFF7F1D1D) : const Color(0xFFFECACA)),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Text(message, style: const TextStyle(color: Color(0xFFB91C1C))),
+      child: Text(message, style: TextStyle(color: dark ? const Color(0xFFFCA5A5) : const Color(0xFFB91C1C))),
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/app_user.dart';
@@ -21,6 +23,7 @@ class Claim {
       status = doc.data()!['status'] as String? ?? 'pending',
       confidence = (doc.data()!['confidence'] as num?)?.toInt() ?? 0,
       feedback = doc.data()!['feedback'] as String? ?? '',
+      handoverCode = doc.data()!['handoverCode'] as String?,
       createdAt = (doc.data()!['createdAt'] as Timestamp?)?.toDate();
 
   final String id, itemId, itemTitle, ownerUid, claimantUid, claimantName, claimantContact;
@@ -32,6 +35,7 @@ class Claim {
   final String status;
   final int confidence;
   final String feedback;
+  final String? handoverCode;
   final DateTime? createdAt;
 
   bool get isPending => status == 'pending';
@@ -124,10 +128,28 @@ class ClaimService {
     return checked;
   }
 
-  /// Admin approves: the claimant collects the item at the office.
+  /// Admin approves: the claimant collects the item at the office, showing
+  /// the private handover code (as a QR) that only they can read.
   Future<void> approve(Claim claim) async {
-    await _claims.doc(claim.id).update({'status': 'approved', 'reviewedAt': FieldValue.serverTimestamp()});
+    await _claims.doc(claim.id).update({
+      'status': 'approved',
+      'reviewedAt': FieldValue.serverTimestamp(),
+      'handoverCode': _newHandoverCode(),
+    });
     await _setItemClaimStatus(claim.itemId, 'claimed');
+  }
+
+  /// No 0/O or 1/I, so it can be read out and typed without mistakes.
+  static String _newHandoverCode() {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    final random = Random.secure();
+    return List.generate(8, (_) => alphabet[random.nextInt(alphabet.length)]).join();
+  }
+
+  /// Admin: the claim a scanned or typed handover code belongs to.
+  Future<Claim?> claimForCode(String code) async {
+    final found = await _claims.where('handoverCode', isEqualTo: code).limit(1).get();
+    return found.docs.isEmpty ? null : Claim.fromDoc(found.docs.first);
   }
 
   Future<void> dismiss(Claim claim) =>

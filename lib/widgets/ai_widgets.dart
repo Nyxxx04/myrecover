@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../app_config.dart';
 import '../models/app_user.dart';
@@ -36,12 +37,12 @@ class AiThinking extends StatelessWidget {
     padding: const EdgeInsets.symmetric(vertical: 24),
     child: Column(
       children: [
-        const SizedBox.square(dimension: 28, child: CircularProgressIndicator(strokeWidth: 2.5, color: aiColor)),
+        SizedBox.square(dimension: 28, child: CircularProgressIndicator(strokeWidth: 2.5, color: context.aiText)),
         const SizedBox(height: 14),
         Text(
           text,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: aiColor, fontWeight: FontWeight.w500),
+          style: TextStyle(color: context.aiText, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 4),
         const Text('This can take a few seconds', style: TextStyle(color: Colors.grey, fontSize: 12)),
@@ -76,7 +77,7 @@ Future<void> _showSheet(BuildContext context, Widget Function(ScrollController) 
     isScrollControlled: true,
     useSafeArea: true,
     showDragHandle: true,
-    backgroundColor: const Color(0xFFF3F4F6),
+    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
     builder: (_) => DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.85,
@@ -175,7 +176,7 @@ class _MatchesSheetState extends State<_MatchesSheet> {
             child: Text(
               'No likely matches yet. We will keep the report up — check again later.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade700),
+              style: TextStyle(color: context.mutedText),
             ),
           )
         else
@@ -234,13 +235,13 @@ class _ScoreBanner extends StatelessWidget {
 Widget contactAction(BuildContext context, Item item, AppUser user) => item.isLost
     ? TextButton.icon(
         onPressed: () => showFoundIt(context, item),
-        style: TextButton.styleFrom(foregroundColor: aiColor),
+        style: TextButton.styleFrom(foregroundColor: context.aiText),
         icon: const Icon(Icons.volunteer_activism_outlined, size: 18),
         label: const Text('I found this'),
       )
     : TextButton.icon(
         onPressed: () => showClaim(context, item, user),
-        style: TextButton.styleFrom(foregroundColor: aiColor),
+        style: TextButton.styleFrom(foregroundColor: context.aiText),
         icon: const Icon(Icons.shield_outlined, size: 18),
         label: const Text('This is mine'),
       );
@@ -278,8 +279,8 @@ class HandoverCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
-      color: const Color(0xFFECFDF5),
-      border: Border.all(color: const Color(0xFFA7F3D0)),
+      color: context.isDark ? const Color(0xFF12352A) : const Color(0xFFECFDF5),
+      border: Border.all(color: context.isDark ? const Color(0xFF1F6F54) : const Color(0xFFA7F3D0)),
       borderRadius: BorderRadius.circular(12),
     ),
     child: Column(
@@ -492,7 +493,7 @@ class _ClaimStatus extends StatelessWidget {
       ),
       _ => (
         Icons.hourglass_top,
-        aiColor,
+        context.aiText,
         'Claim sent',
         "AI checks your answers and the admin reviews your claim. You'll get a notification with the result.",
       ),
@@ -504,10 +505,42 @@ class _ClaimStatus extends StatelessWidget {
         Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         Text(body, textAlign: TextAlign.center),
+        if (claim.isApproved && claim.handoverCode != null) ...[
+          const SizedBox(height: 16),
+          _HandoverQr(code: claim.handoverCode!),
+        ],
         if (claim.isApproved || claim.isDismissed) ...[const SizedBox(height: 16), const HandoverCard()],
       ],
     );
   }
+}
+
+/// Shown at the office. The admin scans it, or types the code underneath.
+class _HandoverQr extends StatelessWidget {
+  const _HandoverQr({required this.code});
+  final String code;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        child: QrImageView(data: code, size: 190, backgroundColor: Colors.white),
+      ),
+      const SizedBox(height: 10),
+      SelectableText(
+        code,
+        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 3),
+      ),
+      const SizedBox(height: 4),
+      Text(
+        'Show this to the admin when you collect your item.',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: context.mutedText, fontSize: 13),
+      ),
+    ],
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -576,7 +609,7 @@ class _AiInsightsCardState extends State<AiInsightsCard> {
     return Card(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: aiColor.withValues(alpha: 0.3)),
+        side: BorderSide(color: context.aiText.withValues(alpha: 0.3)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -589,16 +622,16 @@ class _AiInsightsCardState extends State<AiInsightsCard> {
             children: [
               Row(
                 children: [
-                  const Text(
+                  Text(
                     '✨ AI Insights',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: aiColor),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: context.aiText),
                   ),
                   const Spacer(),
                   if (insights != null && !_loading)
                     IconButton(
                       tooltip: 'Refresh',
                       onPressed: _generate,
-                      icon: const Icon(Icons.refresh, color: aiColor),
+                      icon: Icon(Icons.refresh, color: context.aiText),
                     ),
                 ],
               ),
@@ -614,7 +647,7 @@ class _AiInsightsCardState extends State<AiInsightsCard> {
                 const SizedBox(height: 12),
                 PressScale(
                   child: FilledButton.icon(
-                    style: FilledButton.styleFrom(backgroundColor: aiColor),
+                    style: FilledButton.styleFrom(backgroundColor: aiColor, foregroundColor: Colors.white),
                     onPressed: widget.items.isEmpty ? null : _generate,
                     icon: const Icon(Icons.auto_awesome),
                     label: const Text('Generate insights'),

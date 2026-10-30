@@ -138,7 +138,7 @@ class _FilteredItemListState extends State<FilteredItemList> {
                         if (widget.aiSearch && _ai == null)
                           IconButton(
                             tooltip: 'Ask AI',
-                            icon: const Icon(Icons.auto_awesome, color: Color(0xFF7C3AED)),
+                            icon: Icon(Icons.auto_awesome, color: context.aiText),
                             onPressed: _aiBusy ? null : _runAiSearch,
                           ),
                         IconButton(tooltip: 'Clear', icon: const Icon(Icons.close), onPressed: _clearSearch),
@@ -193,14 +193,14 @@ class _FilteredItemListState extends State<FilteredItemList> {
   }
 
   Widget _aiStatus() {
-    const purple = Color(0xFF7C3AED);
+    final purple = context.aiText;
     if (_aiBusy) {
-      return const Padding(
-        padding: EdgeInsets.fromLTRB(20, 10, 20, 0),
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
         child: Row(
           children: [
             SizedBox.square(dimension: 14, child: CircularProgressIndicator(strokeWidth: 2, color: purple)),
-            SizedBox(width: 10),
+            const SizedBox(width: 10),
             Text('✨ AI is understanding your search…', style: TextStyle(color: purple)),
           ],
         ),
@@ -221,15 +221,15 @@ class _FilteredItemListState extends State<FilteredItemList> {
         decoration: BoxDecoration(color: purple.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(20)),
         child: Row(
           children: [
-            const Icon(Icons.auto_awesome, size: 16, color: purple),
+            Icon(Icons.auto_awesome, size: 16, color: purple),
             const SizedBox(width: 8),
             Expanded(
-              child: Text('AI: ${ai.summary}', style: const TextStyle(color: purple, fontSize: 13)),
+              child: Text('AI: ${ai.summary}', style: TextStyle(color: purple, fontSize: 13)),
             ),
             IconButton(
               tooltip: 'Use plain search',
               visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.close, size: 18, color: purple),
+              icon: Icon(Icons.close, size: 18, color: purple),
               onPressed: () => setState(() => _ai = null),
             ),
           ],
@@ -289,7 +289,7 @@ class _FilteredItemListState extends State<FilteredItemList> {
               padding: const EdgeInsets.fromLTRB(4, 8, 4, 10),
               child: Text(
                 entry,
-                style: const TextStyle(fontWeight: FontWeight.bold, color: brandGreen),
+                style: TextStyle(fontWeight: FontWeight.bold, color: context.brandText),
               ),
             ),
           );

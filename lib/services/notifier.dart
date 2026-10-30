@@ -1,5 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import 'inbox_service.dart';
+
 /// Local notifications for AI matches and claim results.
 class Notifier {
   static final _plugin = FlutterLocalNotificationsPlugin();
@@ -34,5 +36,6 @@ class Notifier {
   static Future<void> show(String key, String title, String body) async {
     await init();
     await _plugin.show(id: key.hashCode & 0x7fffffff, title: title, body: body, notificationDetails: _details);
+    await InboxService.instance.add(key, title, body);
   }
 }

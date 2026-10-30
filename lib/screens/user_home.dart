@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../background.dart';
 import '../models/app_user.dart';
 import '../models/item.dart';
-import '../services/auth_service.dart';
 import '../services/item_service.dart';
 import '../services/match_watcher.dart';
 import '../services/notifier.dart';
@@ -11,6 +10,7 @@ import '../services/search_history.dart';
 import '../theme.dart';
 import '../widgets/ai_widgets.dart';
 import '../widgets/animations.dart';
+import '../widgets/app_menu.dart';
 import '../widgets/item_card.dart';
 import '../widgets/item_list.dart';
 import 'item_form.dart';
@@ -58,12 +58,12 @@ class _UserHomeState extends State<UserHome> {
       'review' => (
         '⏳',
         'Someone claimed this item. The admin is verifying it.',
-        aiColor,
+        context.aiText,
       ),
       _ when item.isProtected => (
         '🛡',
         'Protected: AI and the admin check anyone who claims this item.',
-        aiColor,
+        context.aiText,
       ),
       _ => (null, null, null),
     };
@@ -91,11 +91,7 @@ class _UserHomeState extends State<UserHome> {
               style: const TextStyle(color: Colors.white70),
             ),
           ),
-          IconButton(
-            tooltip: 'Log out',
-            icon: const Icon(Icons.logout),
-            onPressed: AuthService.instance.logout,
-          ),
+          AppMenu(uid: widget.user.uid),
         ],
       ),
       body: FadeIndexedStack(
@@ -110,7 +106,7 @@ class _UserHomeState extends State<UserHome> {
               actions: [
                 TextButton.icon(
                   onPressed: () => showMatches(context, item, widget.user),
-                  style: TextButton.styleFrom(foregroundColor: aiColor),
+                  style: TextButton.styleFrom(foregroundColor: context.aiText),
                   icon: const Icon(Icons.auto_awesome, size: 18),
                   label: Text(item.isLost ? 'Find matches' : 'Find owner'),
                 ),

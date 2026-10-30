@@ -119,7 +119,7 @@ class MatchWatcher {
         key,
         claim.isApproved ? '✅ Your claim was approved' : "Your claim wasn't approved",
         claim.isApproved
-            ? 'Collect your ${claim.itemTitle} at the Student Affairs Department. Bring your student ID.'
+            ? 'Collect your ${claim.itemTitle} at the Student Affairs Department. Bring your student ID and show the QR code on your claim.'
             : '${claim.itemTitle}: contact the Student Affairs Department if you have proof of ownership.',
       );
     }

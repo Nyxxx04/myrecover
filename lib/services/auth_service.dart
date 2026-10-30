@@ -23,7 +23,8 @@ class AuthService {
   static final instance = AuthService._();
 
   static const studentDomain = 'student.uitm.edu.my';
-  static bool isStudentEmail(String? email) => email != null && email.toLowerCase().endsWith('@$studentDomain');
+  static bool isAllowedEmail(String? email) =>
+      !studentsOnly || (email != null && email.toLowerCase().endsWith('@$studentDomain'));
 
   final _auth = FirebaseAuth.instance;
   final _db = FirebaseFirestore.instance;
@@ -46,7 +47,7 @@ class AuthService {
   Future<bool> signInWithGoogle() async {
     final google = GoogleSignIn.instance;
     if (!_googleReady) {
-      await google.initialize(serverClientId: googleWebClientId, hostedDomain: studentDomain);
+      await google.initialize(serverClientId: googleWebClientId, hostedDomain: studentsOnly ? studentDomain : null);
       _googleReady = true;
     }
 
@@ -59,7 +60,7 @@ class AuthService {
     }
 
     final email = account.email.toLowerCase();
-    if (!isStudentEmail(email)) {
+    if (!isAllowedEmail(email)) {
       await google.signOut();
       throw AuthFailure('Please use your UiTM student Google account (…@$studentDomain).');
     }
@@ -97,7 +98,7 @@ class AuthService {
     }
     if ((await _db.collection('users').doc(user.uid).get()).data()?['role'] != 'admin') {
       await _auth.signOut();
-      throw AuthFailure('This login is for admins. Students: use "Sign in with Google".');
+      throw AuthFailure('This login is for admins. Please use "Sign in with Google".');
     }
   }
 

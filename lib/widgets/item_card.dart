@@ -85,17 +85,19 @@ class ItemCard extends StatelessWidget {
 
   Widget _detail(String label, String value) => Padding(
     padding: const EdgeInsets.only(bottom: 3),
-    child: Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(
-            text: '$label: ',
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          TextSpan(text: value),
-        ],
+    child: Builder(
+      builder: (context) => Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: '$label: ',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            TextSpan(text: value),
+          ],
+        ),
+        style: TextStyle(fontSize: 13, color: context.mutedText),
       ),
-      style: const TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
     ),
   );
 }
@@ -107,19 +109,18 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final returned = status == 'returned';
+    final (background, foreground) = switch ((returned, context.isDark)) {
+      (true, false) => (const Color(0xFFDCFCE7), const Color(0xFF166534)),
+      (true, true) => (const Color(0xFF14532D), const Color(0xFFBBF7D0)),
+      (false, false) => (const Color(0xFFDBEAFE), const Color(0xFF1E40AF)),
+      (false, true) => (const Color(0xFF1E3A8A), const Color(0xFFBFDBFE)),
+    };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: returned ? const Color(0xFFDCFCE7) : const Color(0xFFDBEAFE),
-        borderRadius: BorderRadius.circular(20),
-      ),
+      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(20)),
       child: Text(
         status,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: returned ? const Color(0xFF166534) : const Color(0xFF1E40AF),
-        ),
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: foreground),
       ),
     );
   }

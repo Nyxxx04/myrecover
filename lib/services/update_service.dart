@@ -27,7 +27,7 @@ class UpdateService {
       context: context,
       isDismissible: false,
       enableDrag: false,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).cardTheme.color,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -168,15 +168,15 @@ class _UpdateDialogState extends State<_UpdateDialog> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.black12,
+                color: Colors.grey.withValues(alpha: 0.35),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             const SizedBox(height: 20),
-            const Icon(
+            Icon(
               Icons.system_update_rounded,
               size: 44,
-              color: brandGreen,
+              color: context.brandText,
             ),
             const SizedBox(height: 12),
             const Text(
@@ -187,7 +187,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
             Text(
               'MyRecover ${widget.update.version} is ready with the latest fixes.',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.black54),
+              style: TextStyle(color: context.mutedText),
             ),
             if (widget.update.notes.isNotEmpty) ...[
               const SizedBox(height: 10),
@@ -201,7 +201,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
               const SizedBox(height: 16),
               LinearProgressIndicator(
                 value: _progress == 0 ? null : _progress,
-                color: brandGreen,
+                color: context.brandText,
               ),
               const SizedBox(height: 6),
               Text(

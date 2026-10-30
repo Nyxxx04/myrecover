@@ -4,7 +4,6 @@ import '../background.dart';
 
 import '../models/app_user.dart';
 import '../models/item.dart';
-import '../services/auth_service.dart';
 import '../services/claim_service.dart';
 import '../services/item_service.dart';
 import '../services/match_watcher.dart';
@@ -18,6 +17,7 @@ import 'admin_claims.dart';
 import 'admin_edit_screen.dart';
 import 'item_form.dart';
 import '../widgets/animations.dart';
+import '../widgets/app_menu.dart';
 
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key, required this.user});
@@ -101,7 +101,7 @@ class _AdminHomeState extends State<AdminHome> {
           Center(
             child: Text(widget.user.username, style: const TextStyle(color: Colors.white70)),
           ),
-          IconButton(tooltip: 'Log out', icon: const Icon(Icons.logout), onPressed: AuthService.instance.logout),
+          AppMenu(uid: widget.user.uid),
         ],
       ),
       body: FadeIndexedStack(
@@ -209,8 +209,8 @@ class _Dashboard extends StatelessWidget {
             final stats = [
               ('Lost Items', 'still missing', lost, lostColor),
               ('Found Items', 'waiting for owner', found, foundColor),
-              ('Returned', 'back with owner', returned, pendingColor),
-              ('Total Active', 'lost + found', items.length, brandGreen),
+              ('Returned', 'back with owner', returned, context.returnedText),
+              ('Total Active', 'lost + found', items.length, context.brandText),
             ];
             return ListView(
               padding: const EdgeInsets.all(16),
@@ -293,7 +293,7 @@ class _BreakdownCard extends StatelessWidget {
               child: SizedBox(
                 height: 14,
                 child: ColoredBox(
-                  color: const Color(0xFFE5E7EB),
+                  color: context.isDark ? const Color(0xFF333A37) : const Color(0xFFE5E7EB),
                   child: LayoutBuilder(
                     builder: (context, box) => Row(
                       children: [

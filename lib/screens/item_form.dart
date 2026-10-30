@@ -115,11 +115,20 @@ class _ItemFormState extends State<ItemForm> {
       final blurred = await blurSensitivePhoto(bytes);
       if (mounted) setState(() => _image = blurred);
     } else if (choice == 'remove') {
-      setState(() {
-        _image = null;
-        _aiFilled = false;
-      });
+      _removePhoto();
     }
+  }
+
+  /// The photo's details go with it, so a new photo starts from a clean form.
+  void _removePhoto() {
+    _title.clear();
+    _description.clear();
+    setState(() {
+      _image = null;
+      _aiFilled = false;
+      _category = itemCategories.first;
+      _categoryTouched = false;
+    });
   }
 
   Future<void> _pickDate() async {
@@ -326,9 +335,9 @@ class _ItemFormState extends State<ItemForm> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text('Photo', style: TextStyle(fontWeight: FontWeight.w500)),
-        const Text(
+        Text(
           '✨ Add a photo and AI fills in the details for you.',
-          style: TextStyle(color: aiColor, fontSize: 13),
+          style: TextStyle(color: context.aiText, fontSize: 13),
         ),
         const SizedBox(height: 8),
         AnimatedSize(
@@ -355,10 +364,7 @@ class _ItemFormState extends State<ItemForm> {
                         right: 6,
                         child: IconButton.filled(
                           icon: const Icon(Icons.close),
-                          onPressed: () => setState(() {
-                            _image = null;
-                            _aiFilled = false;
-                          }),
+                          onPressed: _removePhoto,
                         ),
                       ),
                     ],
@@ -368,14 +374,14 @@ class _ItemFormState extends State<ItemForm> {
         AnimatedSwitcher(
           duration: motionMedium,
           child: _aiBusy
-              ? const Padding(
-                  key: ValueKey('busy'),
-                  padding: EdgeInsets.only(bottom: 8),
+              ? Padding(
+                  key: const ValueKey('busy'),
+                  padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
                     children: [
-                      SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2, color: aiColor)),
-                      SizedBox(width: 10),
-                      Text('✨ AI is reading your photo…', style: TextStyle(color: aiColor)),
+                      SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2, color: context.aiText)),
+                      const SizedBox(width: 10),
+                      Text('✨ AI is reading your photo…', style: TextStyle(color: context.aiText)),
                     ],
                   ),
                 )
@@ -383,10 +389,10 @@ class _ItemFormState extends State<ItemForm> {
               ? Row(
                   key: const ValueKey('filled'),
                   children: [
-                    const Icon(Icons.auto_awesome, color: aiColor, size: 18),
+                    Icon(Icons.auto_awesome, color: context.aiText, size: 18),
                     const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text('Details filled in by AI — please check them.', style: TextStyle(color: aiColor)),
+                    Expanded(
+                      child: Text('Details filled in by AI — please check them.', style: TextStyle(color: context.aiText)),
                     ),
                     TextButton(onPressed: () => _analyzePhoto(_image!, overwrite: true), child: const Text('Redo')),
                   ],

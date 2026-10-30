@@ -14,6 +14,7 @@ import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await loadThemeMode();
   Object? setupError;
   try {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -37,13 +38,19 @@ class MyRecoverApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'MyRecover',
-      debugShowCheckedModeBanner: false,
-      theme: buildTheme(),
-      // iOS rubber-band overscroll everywhere.
-      scrollBehavior: const MaterialScrollBehavior().copyWith(physics: const BouncingScrollPhysics()),
-      home: setupError != null ? _SetupErrorScreen(error: setupError!) : const AuthGate(),
+    return ValueListenableBuilder(
+      valueListenable: themeMode,
+      builder: (context, mode, _) => MaterialApp(
+        title: 'MyRecover',
+        debugShowCheckedModeBanner: false,
+        theme: buildTheme(Brightness.light),
+        darkTheme: buildTheme(Brightness.dark),
+        themeMode: mode,
+        themeAnimationDuration: const Duration(milliseconds: 350),
+        // iOS rubber-band overscroll everywhere.
+        scrollBehavior: const MaterialScrollBehavior().copyWith(physics: const BouncingScrollPhysics()),
+        home: setupError != null ? _SetupErrorScreen(error: setupError!) : const AuthGate(),
+      ),
     );
   }
 }
@@ -73,7 +80,7 @@ class AuthGate extends StatelessWidget {
               final user = snap.data;
               // Only UiTM student Google accounts (and admins) get in, including
               // sessions saved from before this rule existed.
-              if (user != null && !user.isAdmin && !AuthService.isStudentEmail(firebaseUser.email)) {
+              if (user != null && !user.isAdmin && !AuthService.isAllowedEmail(firebaseUser.email)) {
                 AuthService.instance.logout();
                 return _fade(const LoginScreen(key: ValueKey('login')));
               }

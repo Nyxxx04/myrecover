@@ -24,6 +24,11 @@ class ItemService {
   Future<List<Item>> allItemsOnce() async =>
       (await _items.orderBy('createdAt', descending: true).get()).docs.map(Item.fromDoc).toList();
 
+  Future<Item?> itemById(String id) async {
+    final doc = await _items.doc(id).get();
+    return doc.exists ? Item.fromDoc(doc) : null;
+  }
+
   Future<List<Item>> itemsOfOnce(String uid) async =>
       (await _items.where('userId', isEqualTo: uid).get()).docs.map(Item.fromDoc).toList();
 

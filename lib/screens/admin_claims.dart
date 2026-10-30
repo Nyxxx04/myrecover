@@ -5,9 +5,9 @@ import '../models/item.dart';
 import '../services/claim_service.dart';
 import '../services/match_watcher.dart';
 import '../theme.dart';
-import '../widgets/ai_widgets.dart';
 import '../widgets/animations.dart';
 import 'admin_edit_screen.dart';
+import 'handover_scan_screen.dart';
 
 /// Admin review of ownership claims. Only the admin sees both the finder and
 /// the claimant; they never see each other.
@@ -100,6 +100,14 @@ class _AdminClaimsState extends State<AdminClaims> {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
             children: [
+              OutlinedButton.icon(
+                onPressed: () =>
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const HandoverScanScreen())),
+                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('Scan handover QR'),
+              ),
+              const SizedBox(height: 8),
               for (final (title, list) in sections) ...[
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 8, 4, 10),
@@ -108,13 +116,13 @@ class _AdminClaimsState extends State<AdminClaims> {
                       Expanded(
                         child: Text(
                           '$title (${list.length})',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: brandGreen),
+                          style: TextStyle(fontWeight: FontWeight.bold, color: context.brandText),
                         ),
                       ),
                       if (title.startsWith('Waiting'))
                         TextButton.icon(
                           onPressed: _checking ? null : _runAiCheck,
-                          style: TextButton.styleFrom(foregroundColor: aiColor),
+                          style: TextButton.styleFrom(foregroundColor: context.aiText),
                           icon: _checking
                               ? const SizedBox.square(dimension: 14, child: CircularProgressIndicator(strokeWidth: 2))
                               : const Icon(Icons.auto_awesome, size: 18),

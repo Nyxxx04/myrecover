@@ -5,8 +5,11 @@ import '../services/item_service.dart';
 import '../widgets/animations.dart';
 
 class AdminEditScreen extends StatefulWidget {
-  const AdminEditScreen({super.key, required this.item});
+  const AdminEditScreen({super.key, required this.item, this.markReturned = false});
   final Item item;
+
+  /// Opens with the status already set to Returned (after a handover scan).
+  final bool markReturned;
 
   @override
   State<AdminEditScreen> createState() => _AdminEditScreenState();
@@ -16,7 +19,7 @@ class _AdminEditScreenState extends State<AdminEditScreen> {
   final _form = GlobalKey<FormState>();
   late final _title = TextEditingController(text: widget.item.title);
   late final _description = TextEditingController(text: widget.item.description);
-  late String _status = widget.item.status;
+  late String _status = widget.markReturned ? 'returned' : widget.item.status;
   bool _saving = false;
 
   @override
