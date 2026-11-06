@@ -19,23 +19,31 @@ extension ThemeColors on BuildContext {
   Color get returnedText => isDark ? const Color(0xFF93C5FD) : pendingColor;
 }
 
-const _darkModeKey = 'dark_mode';
-final themeMode = ValueNotifier(ThemeMode.light);
+/// Stored only when the user overrides the phone's setting: true = dark, false = light.
+/// (A new key: the old 'dark_mode' was saved on every switch, even back to light.)
+const _darkModeKey = 'theme_override';
+
+/// Follows the phone's light/dark setting until the user picks one.
+final themeMode = ValueNotifier(ThemeMode.system);
 
 Future<void> loadThemeMode() async {
   try {
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_darkModeKey) ?? false) themeMode.value = ThemeMode.dark;
+    final dark = (await SharedPreferences.getInstance()).getBool(_darkModeKey);
+    if (dark != null) themeMode.value = dark ? ThemeMode.dark : ThemeMode.light;
   } catch (_) {
-    // Storage unavailable: start in light mode.
+    // Storage unavailable: follow the phone.
   }
 }
 
-Future<void> toggleThemeMode() async {
-  final dark = themeMode.value != ThemeMode.dark;
-  themeMode.value = dark ? ThemeMode.dark : ThemeMode.light;
+/// Switches to the opposite of what is on screen. Landing back on the phone's
+/// own setting returns to following the phone.
+Future<void> toggleThemeMode(BuildContext context) async {
+  final dark = !context.isDark;
+  final phoneDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+  themeMode.value = dark == phoneDark ? ThemeMode.system : (dark ? ThemeMode.dark : ThemeMode.light);
   try {
-    await (await SharedPreferences.getInstance()).setBool(_darkModeKey, dark);
+    final prefs = await SharedPreferences.getInstance();
+    dark == phoneDark ? await prefs.remove(_darkModeKey) : await prefs.setBool(_darkModeKey, dark);
   } catch (_) {
     // The switch still applies for this session.
   }
@@ -49,10 +57,10 @@ class ThemeToggle extends StatelessWidget {
   Widget build(BuildContext context) => ValueListenableBuilder(
     valueListenable: themeMode,
     builder: (context, mode, _) {
-      final dark = mode == ThemeMode.dark;
+      final dark = context.isDark;
       return IconButton(
         tooltip: dark ? 'Switch to light mode' : 'Switch to dark mode',
-        onPressed: toggleThemeMode,
+        onPressed: () => toggleThemeMode(context),
         icon: AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
           transitionBuilder: (child, anim) => RotationTransition(

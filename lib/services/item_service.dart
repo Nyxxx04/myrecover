@@ -74,7 +74,8 @@ class ItemService {
       // The lost and found reports of the same object close together and
       // count as one return.
       final ids = [id, ?partnerId];
-      final notices = await _returnNotices(ids);
+      final claims = (await FirebaseFirestore.instance.collection('claims').where('itemId', whereIn: ids).get()).docs;
+      final notices = await _returnNotices(ids, claims);
       final batch = FirebaseFirestore.instance.batch()
         ..set(_stats, {'returned': FieldValue.increment(1)}, SetOptions(merge: true));
       for (final i in ids) {
@@ -83,6 +84,15 @@ class ItemService {
       notices.forEach((uid, notice) {
         batch.set(_returns.doc('${id}_$uid'), {...notice, 'userId': uid, 'returnedAt': FieldValue.serverTimestamp()});
       });
+      // Claims still open on a returned item are closed, so those claimants hear
+      // that it went to its owner instead of waiting forever.
+      for (final c in claims.where((c) => !const {'approved', 'dismissed'}.contains(c.data()['status']))) {
+        batch.update(c.reference, {
+          'status': 'dismissed',
+          'closedReason': 'ownerFound',
+          'reviewedAt': FieldValue.serverTimestamp(),
+        });
+      }
       await batch.commit();
       return true;
     }
@@ -98,7 +108,10 @@ class ItemService {
   /// Who to tell that an item is back with its owner: the finder, the person
   /// who reported it lost, and anyone whose claim on it was approved.
   /// Returned items are deleted, so each gets a notice their app picks up.
-  Future<Map<String, Map<String, dynamic>>> _returnNotices(List<String> itemIds) async {
+  Future<Map<String, Map<String, dynamic>>> _returnNotices(
+    List<String> itemIds,
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> claims,
+  ) async {
     final notices = <String, Map<String, dynamic>>{};
     for (final snap in await Future.wait(itemIds.map((i) => _items.doc(i).get()))) {
       final data = snap.data();
@@ -108,8 +121,7 @@ class ItemService {
         'itemTitle': data['title'],
       };
     }
-    final claims = await FirebaseFirestore.instance.collection('claims').where('itemId', whereIn: itemIds).get();
-    for (final c in claims.docs.where((c) => c.data()['status'] == 'approved')) {
+    for (final c in claims.where((c) => c.data()['status'] == 'approved')) {
       notices.putIfAbsent(c.data()['claimantUid'] as String, () => {'role': 'owner', 'itemTitle': c.data()['itemTitle']});
     }
     return notices;

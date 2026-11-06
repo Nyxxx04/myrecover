@@ -241,14 +241,14 @@ class _FilteredItemListState extends State<FilteredItemList> {
   /// Applies AI-understood filters, loosening them if nothing matches.
   List<Item> _aiResults(List<Item> all, ItemRecommender recommender, AiSearchFilters ai) {
     final byType = _filter == 'all' ? all : all.where((i) => i.type == _filter).toList();
-    final since = ai.daysAgo >= 0 ? DateTime.now().subtract(Duration(days: ai.daysAgo + 1)) : null;
-    final strict = byType
-        .where((i) => ai.category == 'any' || i.category == ai.category)
-        .where((i) => since == null || !i.date.isBefore(DateTime(since.year, since.month, since.day)))
-        .toList();
-    final query = [ai.keywords, ai.color, ai.location].where((s) => s.isNotEmpty).join(' ');
-    final results = recommender.search(strict, query.isEmpty ? _query : query);
-    return results.isNotEmpty ? results : recommender.search(byType, ai.keywords.isEmpty ? _query : ai.keywords);
+    final s = ai.daysAgo >= 0 ? DateTime.now().subtract(Duration(days: ai.daysAgo + 1)) : null;
+    final query = [ai.keywords, ai.color, ai.location].where((t) => t.isNotEmpty).join(' ');
+    return recommender.rankedSearch(
+      byType,
+      query.isEmpty ? _query : query,
+      category: ai.category == 'any' ? null : ai.category,
+      since: s == null ? null : DateTime(s.year, s.month, s.day),
+    );
   }
 
   Widget _buildList(List<Item> all) {

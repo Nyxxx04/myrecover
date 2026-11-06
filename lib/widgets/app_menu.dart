@@ -25,7 +25,7 @@ class _AppMenuState extends State<AppMenu> {
       case _MenuAction.notifications:
         Navigator.push(context, MaterialPageRoute(builder: (_) => InboxScreen(uid: widget.uid)));
       case _MenuAction.theme:
-        toggleThemeMode();
+        toggleThemeMode(context);
       case _MenuAction.logout:
         AuthService.instance.logout();
     }

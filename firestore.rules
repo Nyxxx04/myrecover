@@ -100,7 +100,7 @@ service cloud.firestore {
       allow update: if isAdmin()
         && request.resource.data.status in ['verified', 'rejected', 'approved', 'dismissed']
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['status', 'confidence', 'feedback', 'checkedAt', 'reviewedAt', 'handoverCode']);
+             .hasOnly(['status', 'confidence', 'feedback', 'checkedAt', 'reviewedAt', 'handoverCode', 'closedReason']);
       allow delete: if isAdmin();
     }
   }

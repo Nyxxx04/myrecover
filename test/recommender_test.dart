@@ -65,4 +65,25 @@ void main() {
     expect(r.score(pair[0], query), greaterThan(0.15));
     expect(r.score(pair[1], query), lessThan(0.05));
   });
+
+  group('AI search', () {
+    final pool = [
+      _item('xbox', 'White Xbox controller box', category: 'Other'),
+      _item('candy', 'candy Espresso', category: 'Other', description: 'black metal box'),
+      _item('mouse', 'Black wireless mouse', category: 'Electronics'),
+    ];
+    final r = ItemRecommender(pool);
+
+    test('an item filed under a different category than the AI guessed still shows', () {
+      final ids = r.rankedSearch(pool, 'black controller box', category: 'Electronics').map((i) => i.id);
+      expect(ids, contains('xbox'));
+      expect(ids.first, 'xbox');
+    });
+
+    test('a matching category ranks an item higher but does not add unrelated ones', () {
+      final ids = r.rankedSearch(pool, 'black', category: 'Electronics').map((i) => i.id).toList();
+      expect(ids.first, 'mouse');
+      expect(ids, isNot(contains('xbox')));
+    });
+  });
 }

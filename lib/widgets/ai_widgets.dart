@@ -394,7 +394,11 @@ class _ClaimSheetState extends State<_ClaimSheet> {
             child: snap.connectionState == ConnectionState.waiting && !snap.hasData && !snap.hasError
                 ? const Center(key: ValueKey('loading'), child: CircularProgressIndicator())
                 : !snap.hasError && snap.data != null
-                ? _ClaimStatus(key: ValueKey(snap.data!.status), claim: snap.data!)
+                ? _ClaimStatus(
+                    key: ValueKey(snap.data!.status),
+                    claim: snap.data!,
+                    itemClaimed: widget.item.claimStatus == 'claimed',
+                  )
                 : !widget.item.isProtected
                 ? const _Unprotected(key: ValueKey('unprotected'))
                 : _formView(),
@@ -473,12 +477,21 @@ class _Unprotected extends StatelessWidget {
 }
 
 class _ClaimStatus extends StatelessWidget {
-  const _ClaimStatus({super.key, required this.claim});
+  const _ClaimStatus({super.key, required this.claim, required this.itemClaimed});
   final Claim claim;
+
+  /// The admin approved someone for this item.
+  final bool itemClaimed;
 
   @override
   Widget build(BuildContext context) {
     final (icon, color, title, body) = switch (claim.status) {
+      'dismissed' when itemClaimed => (
+        Icons.how_to_reg_outlined,
+        lostColor,
+        'This item went to its verified owner',
+        'Another claimant was confirmed as the owner. If you still think it is yours, contact the admin with proof.',
+      ),
       'approved' => (
         Icons.verified,
         foundColor,
@@ -755,14 +768,15 @@ class _ModerationSheetState extends State<_ModerationSheet> {
           style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         const Text(
-          'AI flags reports that may be fake, duplicated, spam or inappropriate. Review before deleting.',
+          'AI reads every report and its photo, and flags ones that may be fake, duplicated, spam or '
+          'inappropriate. Review before deleting.',
           style: TextStyle(color: Colors.grey),
         ),
         const SizedBox(height: 12),
         if (_error != null)
           AiErrorBox(_error!, onRetry: _scan)
         else if (flags == null)
-          const AiThinking('AI is reviewing every report…')
+          const AiThinking('AI is reviewing every report and photo… this can take up to a minute')
         else if (flags.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 32),
@@ -797,14 +811,27 @@ class _ModerationSheetState extends State<_ModerationSheet> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          Text('${flag.confidence}%', style: TextStyle(color: context.mutedText, fontSize: 12)),
                         ],
                       ),
                       const SizedBox(height: 8),
+                      if (item.imageBytes != null) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.memory(item.imageBytes!, height: 120, width: double.infinity, fit: BoxFit.cover),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                       Text(flag.reason),
+                      for (final s in flag.signals)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text('• $s', style: TextStyle(color: context.mutedText, fontSize: 13)),
+                        ),
                       if (related != null) ...[
                         const SizedBox(height: 4),
                         Text(
-                          'Same as: "${related.title}" by ${related.reporter}',
+                          '${flag.issue == 'duplicate' ? 'Same as' : 'Related'}: "${related.title}" by ${related.reporter}',
                           style: const TextStyle(color: Colors.grey, fontSize: 13),
                         ),
                       ],

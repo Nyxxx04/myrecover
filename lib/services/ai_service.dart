@@ -73,9 +73,15 @@ class AiFlag {
     : id = j['id'] as String,
       issue = j['issue'] as String? ?? 'spam',
       relatedId = j['related_id'] as String? ?? '',
-      reason = j['reason'] as String? ?? '';
+      reason = j['reason'] as String? ?? '',
+      confidence = ((j['confidence'] as num?)?.toInt() ?? 0).clamp(0, 100),
+      signals = List<String>.from(j['signals'] as List? ?? []);
 
   final String id, issue, relatedId, reason;
+  final int confidence;
+
+  /// The concrete evidence behind the flag, e.g. "Photo is a product image with a white studio background".
+  final List<String> signals;
 }
 
 /// The app's AI features, calling Google Gemini directly.
@@ -204,7 +210,11 @@ class AiService {
       [Gemini.text('<item>Item: $itemTitle\nSecret detail: $secret</item>\n<item>Claimant answers:\n$qa</item>')],
       _obj({
         'verified': {'type': 'boolean'},
-        'confidence': {'type': 'integer', 'description': '0-100'},
+        'confidence': {
+          'type': 'integer',
+          'description':
+              'How likely the claimant is the true owner, 0-100: 0 = answers contradict the secret, 100 = answers clearly match it. Not how sure you are of your verdict.',
+        },
         'feedback': _str,
       }),
     );
@@ -222,31 +232,61 @@ class AiService {
     ),
   );
 
-  /// Admin: flag duplicate, spam or inappropriate reports.
+  /// Reports reviewed per scan, newest first, and how many of them send their photo.
+  static const _moderateMax = 150, _moderatePhotos = 30;
+
+  /// Admin: flag fake, duplicate, spam or inappropriate reports, reading both
+  /// the text and the photos. Only flags with confidence 50+ are returned.
   Future<List<AiFlag>> moderate(List<Item> items) async {
-    final data = [
-      for (final i in items)
-        {
-          'id': i.id,
-          'type': i.type,
-          'title': i.title,
-          'category': i.category,
-          'description': i.description,
-          'location': i.location,
-          'date': _date.format(i.date),
-          'reporter': i.reporter,
-          'contact': i.contact,
-        },
+    final recent = items.take(_moderateMax).toList();
+    final perReporter = <String, int>{};
+    for (final i in recent) {
+      perReporter.update(i.userId, (n) => n + 1, ifAbsent: () => 1);
+    }
+    var photos = 0;
+    final parts = [
+      Gemini.text('Today is ${_date.format(DateTime.now())}. The reports, newest first:'),
+      for (final i in recent) ...[
+        Gemini.text(
+          '<item>${jsonEncode({
+            'id': i.id,
+            'type': i.type,
+            'title': i.title,
+            'category': i.category,
+            'description': i.description,
+            'location': i.location,
+            'event_date': _date.format(i.date),
+            'posted': i.createdAt == null ? '' : DateFormat('yyyy-MM-dd HH:mm').format(i.createdAt!),
+            'reporter': i.reporter,
+            'reporter_id': i.userId,
+            'reports_by_this_reporter': perReporter[i.userId],
+            'contact': i.contact,
+            'has_photo': i.imageBase64?.isNotEmpty ?? false,
+          })}</item>',
+        ),
+        if ((i.imageBase64?.isNotEmpty ?? false) && photos++ < _moderatePhotos) ...[
+          Gemini.text('Photo of ${i.id}:'),
+          Gemini.image(i.imageBase64!),
+        ],
+      ],
     ];
     final res = await Gemini.json(
-      'Review lost-and-found reports for an admin. Flag only clear problems:\n'
-      '- duplicate: the same item reported twice by the same person (or near-identical reports). Set related_id to the other report.\n'
-      '- fake: likely not a genuine report: test or joke posts, impossible or contradictory details (e.g. found before it was lost, a place that is not on campus), copied text, or a description too vague to be a real item.\n'
-      '- spam: gibberish or ads.\n'
-      '- inappropriate: offensive or harassing content, or personal data posted publicly (IC numbers, bank details).\n'
-      "A lost report matching a found report is NOT a duplicate - that is a good match. When unsure, don't flag. related_id is empty unless duplicate.\n"
+      'You review lost-and-found reports at a Malaysian university campus (UiTM) for the admin. Read every report AND look at every attached photo. Flag only real problems.\n'
+      '\n'
+      'fake - not a genuine report. Look for:\n'
+      '- Photo: a stock, catalogue or online-shop image (plain white studio background, watermark, price tag, product layout); a screenshot of a website, social media or chat; a photo of a screen; a cartoon, meme or AI-generated image (warped text, melted shapes, impossible details); the same photo used in another report by a different person.\n'
+      "- Photo vs text: the photo shows a different object, colour or brand than the title/description says (e.g. title 'black wallet', photo of a blue bottle).\n"
+      "- Text: test or joke posts ('test', 'asdf', 'hehe'); an event date in the future; a found item dated before its matching lost report when that is used to claim it; a place that is not on or near a campus; a description too vague to recognise any real item ('lost something'); implausible items or quantities; a contact that is clearly fake ('0000000000', 'abc').\n"
+      '- Claim bait: a LOST report posted after a matching FOUND report by a different person that copies its wording or photo almost exactly, which suggests someone trying to claim an item that is not theirs. Set related_id to the found report.\n'
+      '- Behaviour: one reporter posting many lost reports of unrelated valuable items in a short time.\n'
+      'duplicate - the same item reported twice by the same reporter (or near-identical reports). Set related_id to the other report.\n'
+      'spam - gibberish, ads, or reports that are not about an item.\n'
+      'inappropriate - offensive or harassing content, or personal data shown publicly in the text or photo (IC/MyKad numbers, bank cards, passports).\n'
+      '\n'
+      'Not a problem: a lost report matching a found report (that is a good match), a blurry or dark but real photo, a report with no photo, short but specific descriptions, Malay or mixed-language text.\n'
+      "For each flag give: confidence 0-100 that the problem is real; a one-sentence reason the admin can act on; signals = 1-4 short pieces of concrete evidence you saw (quote the text or describe what is in the photo). related_id is empty unless duplicate or claim bait. When unsure, don't flag.\n"
       '$_dataRule',
-      [Gemini.text('<item>${jsonEncode(data)}</item>')],
+      parts,
       _obj({
         'flags': {
           'type': 'array',
@@ -256,13 +296,18 @@ class AiService {
               'type': 'string',
               'enum': ['fake', 'duplicate', 'spam', 'inappropriate'],
             },
+            'confidence': {'type': 'integer'},
             'related_id': _str,
             'reason': _str,
+            'signals': _strList,
           }),
         },
       }),
+      budget: const Duration(seconds: 90),
+      thinkingLevel: 'low',
     );
-    return [for (final f in res['flags'] as List) AiFlag(f as Map<String, dynamic>)];
+    final flags = [for (final f in res['flags'] as List) AiFlag(f as Map<String, dynamic>)];
+    return flags.where((f) => f.confidence >= 50).toList()..sort((a, b) => b.confidence.compareTo(a.confidence));
   }
 
   List<Map<String, dynamic>> _itemParts(Item i) => [

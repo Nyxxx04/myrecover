@@ -104,7 +104,7 @@ class MatchWatcher {
         '🛡 New claim to review: ${claim.itemTitle}',
         claim.isVerified
             ? 'AI check passed (${claim.confidence}%). Open Claims to approve.'
-            : 'AI could not verify the answers (${claim.confidence}%). Open Claims to decide.',
+            : "AI found the answers don't match. Open Claims to decide.",
       );
     }
   }
@@ -115,11 +115,21 @@ class MatchWatcher {
       if (!claim.isApproved && !claim.isDismissed) continue;
       final key = 'claim:${claim.id}:${claim.status}';
       if (!notified.add(key)) continue;
+      // Older claims have no closedReason, so fall back to the item's status.
+      final wentToOwner =
+          claim.lostToOwner ||
+          (claim.isDismissed && (await ItemService.instance.itemById(claim.itemId))?.claimStatus == 'claimed');
       await Notifier.show(
         key,
-        claim.isApproved ? '✅ Your claim was approved' : "Your claim wasn't approved",
+        claim.isApproved
+            ? '✅ Your claim was approved'
+            : wentToOwner
+            ? 'The ${claim.itemTitle} went to its verified owner'
+            : "Your claim wasn't approved",
         claim.isApproved
             ? 'Collect your ${claim.itemTitle} at the Student Affairs Department. Bring your student ID and show the QR code on your claim.'
+            : wentToOwner
+            ? 'Another claimant was confirmed as the owner. Contact the Student Affairs Department if you have proof it is yours.'
             : '${claim.itemTitle}: contact the Student Affairs Department if you have proof of ownership.',
       );
     }

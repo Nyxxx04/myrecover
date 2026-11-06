@@ -77,6 +77,23 @@ class ItemRecommender {
     return [for (final e in scored) e.$1];
   }
 
+  /// AI-understood search. Only the text decides whether an item shows up; a
+  /// matching [category] or a date on/after [since] just ranks it higher, so an
+  /// item filed under another category than the AI guessed is not hidden.
+  List<Item> rankedSearch(List<Item> items, String query, {String? category, DateTime? since}) {
+    final scored = <(Item, double)>[];
+    for (final item in items) {
+      final text = score(item, query);
+      if (text <= 0) continue;
+      var boost = 1.0;
+      if (category != null && item.category == category) boost += 0.5;
+      if (since != null && !item.date.isBefore(since)) boost += 0.25;
+      scored.add((item, text * boost));
+    }
+    scored.sort((a, b) => b.$2.compareTo(a.$2));
+    return [for (final e in scored) e.$1];
+  }
+
   /// Items similar to the user's recent searches. Newer searches count more.
   List<Item> recommend(List<Item> items, List<String> recentQueries, {double threshold = 0.08, int limit = 5}) {
     if (recentQueries.isEmpty) return [];

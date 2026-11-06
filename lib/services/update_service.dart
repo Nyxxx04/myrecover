@@ -25,8 +25,8 @@ class UpdateService {
     if (update == null || !context.mounted) return;
     await showModalBottomSheet<void>(
       context: context,
-      isDismissible: false,
-      enableDrag: false,
+      isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Theme.of(context).cardTheme.color,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -36,7 +36,13 @@ class UpdateService {
         curve: Curves.easeOutCubic,
         reverseDuration: Duration(milliseconds: 300),
       ),
-      builder: (_) => _UpdateDialog(update: update),
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.92,
+        maxChildSize: 0.92,
+        minChildSize: 0.5,
+        builder: (_, controller) => _UpdateDialog(update: update, controller: controller),
+      ),
     );
   }
 
@@ -94,8 +100,9 @@ class _Update {
 }
 
 class _UpdateDialog extends StatefulWidget {
-  const _UpdateDialog({required this.update});
+  const _UpdateDialog({required this.update, required this.controller});
   final _Update update;
+  final ScrollController controller;
 
   @override
   State<_UpdateDialog> createState() => _UpdateDialogState();
@@ -159,46 +166,86 @@ class _UpdateDialogState extends State<_UpdateDialog> {
   Widget build(BuildContext context) {
     final downloading = _progress != null;
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(2),
-              ),
+      top: false,
+      child: Column(
+        children: [
+          // Scrolling this list down also drags the whole sheet down.
+          Expanded(
+            child: ListView(
+              controller: widget.controller,
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.35),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Icon(Icons.system_update_rounded, size: 44, color: context.brandText),
+                const SizedBox(height: 12),
+                const Text(
+                  'Update available',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'MyRecover ${widget.update.version} is ready with the latest fixes.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: context.mutedText),
+                ),
+                if (widget.update.notes.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(widget.update.notes, style: TextStyle(color: context.mutedText, fontSize: 14, height: 1.4)),
+                ],
+              ],
             ),
-            const SizedBox(height: 20),
-            Icon(
-              Icons.system_update_rounded,
-              size: 44,
-              color: context.brandText,
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ..._status(downloading),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    OutlinedButton(
+                      onPressed: downloading ? null : () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(130, 48),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Later'),
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton(
+                      onPressed: downloading ? null : _start,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(130, 48),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text(_handedOff ? 'Install' : 'Update'),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'Update available',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'MyRecover ${widget.update.version} is ready with the latest fixes.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: context.mutedText),
-            ),
-            if (widget.update.notes.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(
-                widget.update.notes,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey, fontSize: 13),
-              ),
-            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _status(bool downloading) => [
             if (downloading) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               LinearProgressIndicator(
                 value: _progress == 0 ? null : _progress,
                 color: context.brandText,
@@ -225,34 +272,5 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                 style: const TextStyle(color: Colors.red, fontSize: 13),
               ),
             ],
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OutlinedButton(
-                  onPressed: downloading
-                      ? null
-                      : () => Navigator.of(context).pop(),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(130, 48),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('Later'),
-                ),
-                const SizedBox(width: 12),
-                FilledButton(
-                  onPressed: downloading ? null : _start,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(130, 48),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: Text(_handedOff ? 'Install' : 'Update'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  ];
 }

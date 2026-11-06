@@ -1,10 +1,12 @@
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import '../models/app_user.dart';
 import '../models/item.dart';
 import 'ai_service.dart';
+import 'item_service.dart';
 
 /// A request by someone saying a found item is theirs.
 class Claim {
@@ -24,6 +26,7 @@ class Claim {
       confidence = (doc.data()!['confidence'] as num?)?.toInt() ?? 0,
       feedback = doc.data()!['feedback'] as String? ?? '',
       handoverCode = doc.data()!['handoverCode'] as String?,
+      closedReason = doc.data()!['closedReason'] as String?,
       createdAt = (doc.data()!['createdAt'] as Timestamp?)?.toDate();
 
   final String id, itemId, itemTitle, ownerUid, claimantUid, claimantName, claimantContact;
@@ -36,6 +39,10 @@ class Claim {
   final int confidence;
   final String feedback;
   final String? handoverCode;
+
+  /// 'ownerFound' when closed because another claimant was confirmed as the owner.
+  final String? closedReason;
+  bool get lostToOwner => isDismissed && closedReason == 'ownerFound';
   final DateTime? createdAt;
 
   bool get isPending => status == 'pending';
@@ -52,10 +59,14 @@ class Claim {
 /// - the admin's phone checks pending claims with AI, then the admin approves
 ///   or dismisses. Approving marks the item 'claimed' so the finder is told.
 class ClaimService {
-  ClaimService._();
-  static final instance = ClaimService._();
+  ClaimService._(this._db);
+  static final instance = ClaimService._(FirebaseFirestore.instance);
 
-  final _db = FirebaseFirestore.instance;
+  /// For tests: a service backed by a fake database.
+  @visibleForTesting
+  factory ClaimService.withDb(FirebaseFirestore db) => ClaimService._(db);
+
+  final FirebaseFirestore _db;
   CollectionReference<Map<String, dynamic>> get _claims => _db.collection('claims');
 
   Future<void> saveSecret(String itemId, String ownerUid, String secret) =>
@@ -113,6 +124,8 @@ class ClaimService {
     final checked = <Claim>[];
     for (final doc in pending.docs) {
       final claim = Claim.fromDoc(doc);
+      // Owner already identified: the admin closes these from the Claims tab, no AI needed.
+      if ((await ItemService.instance.itemById(claim.itemId))?.claimStatus == 'claimed') continue;
       final secret = await secretFor(claim.itemId);
       if (secret == null) continue;
       final result = await AiService.instance.judgeClaim(claim.itemTitle, secret, claim.answers);
@@ -130,14 +143,38 @@ class ClaimService {
 
   /// Admin approves: the claimant collects the item at the office, showing
   /// the private handover code (as a QR) that only they can read.
-  Future<void> approve(Claim claim) async {
-    await _claims.doc(claim.id).update({
-      'status': 'approved',
-      'reviewedAt': FieldValue.serverTimestamp(),
-      'handoverCode': _newHandoverCode(),
-    });
+  /// [closeOthers] are other claims on the same item, closed in the same step
+  /// because the owner has been identified.
+  Future<void> approve(Claim claim, {List<Claim> closeOthers = const []}) async {
+    final batch = _db.batch()
+      ..update(_claims.doc(claim.id), {
+        'status': 'approved',
+        'reviewedAt': FieldValue.serverTimestamp(),
+        'handoverCode': _newHandoverCode(),
+      });
+    for (final other in closeOthers) {
+      batch.update(_claims.doc(other.id), _closedForOwner);
+    }
+    await batch.commit();
     await _setItemClaimStatus(claim.itemId, 'claimed');
   }
+
+  /// Admin: closes claims on an item whose owner was already identified.
+  Future<void> dismissAll(List<Claim> claims) async {
+    final batch = _db.batch();
+    for (final c in claims) {
+      batch.update(_claims.doc(c.id), _closedForOwner);
+    }
+    await batch.commit();
+  }
+
+  /// Closes a claim because someone else was confirmed as the owner, so the
+  /// claimant is told that rather than a plain "not approved".
+  static Map<String, Object> get _closedForOwner => {
+    'status': 'dismissed',
+    'closedReason': 'ownerFound',
+    'reviewedAt': FieldValue.serverTimestamp(),
+  };
 
   /// No 0/O or 1/I, so it can be read out and typed without mistakes.
   static String _newHandoverCode() {

@@ -30,19 +30,35 @@ class _AdminClaimsState extends State<AdminClaims> {
     if (mounted) setState(() => _checking = false);
   }
 
-  Future<void> _decide(Claim claim, {required bool approve}) async {
+  /// [others] are the other still-open claims on the same item.
+  Future<void> _decide(Claim claim, {required bool approve, List<Claim> others = const []}) async {
+    var close = <Claim>[];
+    if (approve && others.isNotEmpty) {
+      final picked = await _pickClaimsToClose(
+        others,
+        'Approve ${claim.claimantName}?',
+        '${others.length} other ${others.length == 1 ? 'person also claimed' : 'people also claimed'} '
+            'this item. Close their claims, since the owner is identified?',
+        'Approve',
+      );
+      if (picked == null) return;
+      close = picked;
+    }
     if (!approve && !await _confirm('Dismiss the claim by ${claim.claimantName}?', 'Dismiss')) {
       return;
     }
-    setState(() => _busy.add(claim.id));
+    setState(() => _busy.addAll([claim.id, ...close.map((c) => c.id)]));
     try {
-      approve ? await ClaimService.instance.approve(claim) : await ClaimService.instance.dismiss(claim);
+      approve
+          ? await ClaimService.instance.approve(claim, closeOthers: close)
+          : await ClaimService.instance.dismiss(claim);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               approve
                   ? 'Approved. ${claim.claimantName} and the finder will be notified.'
+                        '${close.isEmpty ? '' : ' ${close.length} other ${close.length == 1 ? 'claim' : 'claims'} closed.'}'
                   : 'Claim dismissed. ${claim.claimantName} will be notified.',
             ),
           ),
@@ -51,9 +67,76 @@ class _AdminClaimsState extends State<AdminClaims> {
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
     } finally {
-      if (mounted) setState(() => _busy.remove(claim.id));
+      if (mounted) setState(() => _busy.removeAll([claim.id, ...close.map((c) => c.id)]));
     }
   }
+
+  /// Owner already identified: close the remaining claims on that item.
+  Future<void> _closeRemaining(Claim owner, List<Claim> open) async {
+    final close = await _pickClaimsToClose(
+      open,
+      'Owner already identified',
+      '${owner.claimantName} was approved for "${owner.itemTitle}". Close these claims?',
+      'Close',
+    );
+    if (close == null || close.isEmpty) return;
+    setState(() => _busy.addAll(close.map((c) => c.id)));
+    try {
+      await ClaimService.instance.dismissAll(close);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${close.length} ${close.length == 1 ? 'claim' : 'claims'} closed.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+    } finally {
+      if (mounted) setState(() => _busy.removeAll(close.map((c) => c.id)));
+    }
+  }
+
+  /// Null when cancelled. Every claim starts ticked.
+  Future<List<Claim>?> _pickClaimsToClose(List<Claim> claims, String title, String message, String action) =>
+      showDialog<List<Claim>>(
+        context: context,
+        builder: (context) {
+          final picked = {...claims};
+          return StatefulBuilder(
+            builder: (context, setDialog) => AlertDialog(
+              title: Text(title),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(message),
+                    const SizedBox(height: 8),
+                    for (final c in claims)
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        value: picked.contains(c),
+                        onChanged: (v) => setDialog(() => v! ? picked.add(c) : picked.remove(c)),
+                        title: Text(c.claimantName),
+                        subtitle: Text(
+                          c.isPending
+                              ? 'Waiting for AI check'
+                              : c.isVerified
+                              ? 'AI match ${c.confidence}%'
+                              : 'AI: no match',
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                TextButton(onPressed: () => Navigator.pop(context, picked.toList()), child: Text(action)),
+              ],
+            ),
+          );
+        },
+      );
 
   Future<bool> _confirm(String message, String action) async =>
       await showDialog<bool>(
@@ -83,6 +166,12 @@ class _AdminClaimsState extends State<AdminClaims> {
           final open = snap.data!.where((c) => itemsById.containsKey(c.itemId)).toList();
           final closed = snap.data!.where((c) => !itemsById.containsKey(c.itemId)).toList();
           final claims = snap.data!;
+          // Per item: who was approved, and which claims are still undecided.
+          final approvedFor = {for (final c in open.where((c) => c.isApproved)) c.itemId: c};
+          final undecided = <String, List<Claim>>{};
+          for (final c in open.where((c) => c.isPending || c.awaitsAdmin)) {
+            undecided.putIfAbsent(c.itemId, () => []).add(c);
+          }
           final sections = [
             ('Needs your review', open.where((c) => c.awaitsAdmin).toList()),
             ('Waiting for AI check', open.where((c) => c.isPending).toList()),
@@ -139,8 +228,14 @@ class _AdminClaimsState extends State<AdminClaims> {
                       claim: c,
                       item: itemsById[c.itemId],
                       busy: _busy.contains(c.id),
-                      onApprove: () => _decide(c, approve: true),
+                      owner: c.isApproved ? null : approvedFor[c.itemId],
+                      onApprove: () => _decide(
+                        c,
+                        approve: true,
+                        others: [...?undecided[c.itemId]]..remove(c),
+                      ),
                       onDismiss: () => _decide(c, approve: false),
+                      onCloseRemaining: () => _closeRemaining(approvedFor[c.itemId]!, undecided[c.itemId] ?? [c]),
                     ),
                   ),
               ],
@@ -157,14 +252,19 @@ class _ClaimCard extends StatelessWidget {
     required this.claim,
     required this.item,
     required this.busy,
+    required this.owner,
     required this.onApprove,
     required this.onDismiss,
+    required this.onCloseRemaining,
   });
 
   final Claim claim;
   final Item? item;
   final bool busy;
-  final VoidCallback onApprove, onDismiss;
+
+  /// Another claimant already approved for this item, if any.
+  final Claim? owner;
+  final VoidCallback onApprove, onDismiss, onCloseRemaining;
 
   @override
   Widget build(BuildContext context) {
@@ -209,7 +309,28 @@ class _ClaimCard extends StatelessWidget {
               Text('A: ${a['answer']}', style: const TextStyle(fontWeight: FontWeight.w500)),
               const SizedBox(height: 6),
             ],
-            if (claim.awaitsAdmin && item != null)
+            if (owner != null && (claim.isPending || claim.awaitsAdmin) && item != null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: foundColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'Owner already identified: ${owner!.claimantName} was approved for this item.',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: busy ? null : onCloseRemaining,
+                  icon: const Icon(Icons.done_all, size: 18),
+                  label: const Text('Close claims for this item'),
+                ),
+              ),
+            ] else if (claim.awaitsAdmin && item != null)
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -258,7 +379,9 @@ class _AiChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
       child: Text(
-        '${passed ? '✓ AI match' : '✗ AI unsure'} $confidence%',
+        // A failed claim's number was not always "likelihood of owner" in older
+        // claims, so only the verdict is shown for those.
+        passed ? '✓ AI match $confidence%' : '✗ AI: no match',
         style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12),
       ),
     );
