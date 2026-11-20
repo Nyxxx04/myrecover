@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/app_user.dart';
 import '../screens/inbox_screen.dart';
 import '../services/auth_service.dart';
 import '../services/inbox_service.dart';
@@ -10,22 +11,25 @@ enum _MenuAction { notifications, theme, logout }
 /// Three-line menu for the app bar. A white number on the icon counts unread
 /// notifications.
 class AppMenu extends StatefulWidget {
-  const AppMenu({super.key, required this.uid});
-  final String uid;
+  const AppMenu({super.key, required this.user});
+  final AppUser user;
 
   @override
   State<AppMenu> createState() => _AppMenuState();
 }
 
 class _AppMenuState extends State<AppMenu> {
-  late final _entries = InboxService.instance.entries(widget.uid);
+  late final _entries = InboxService.instance.entries(widget.user.uid);
 
   void _select(_MenuAction action) {
     switch (action) {
       case _MenuAction.notifications:
-        Navigator.push(context, MaterialPageRoute(builder: (_) => InboxScreen(uid: widget.uid)));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => InboxScreen(user: widget.user)));
       case _MenuAction.theme:
-        toggleThemeMode(context);
+        // Let the menu finish its 300ms close so it isn't caught in the reveal snapshot.
+        Future.delayed(const Duration(milliseconds: 380), () {
+          if (mounted) toggleThemeMode(context);
+        });
       case _MenuAction.logout:
         AuthService.instance.logout();
     }
@@ -53,7 +57,7 @@ class _AppMenuState extends State<AppMenu> {
         tooltip: 'Menu',
         onSelected: _select,
         position: PopupMenuPosition.under,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         icon: Badge(
           isLabelVisible: unread > 0,
           backgroundColor: Colors.red,

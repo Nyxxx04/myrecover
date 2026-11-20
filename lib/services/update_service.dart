@@ -29,7 +29,7 @@ class UpdateService {
       useSafeArea: true,
       backgroundColor: Theme.of(context).cardTheme.color,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
       sheetAnimationStyle: const AnimationStyle(
         duration: Duration(milliseconds: 450),
@@ -220,7 +220,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                       onPressed: downloading ? null : () => Navigator.of(context).pop(),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size(130, 48),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: const StadiumBorder(),
                       ),
                       child: const Text('Later'),
                     ),
@@ -229,7 +229,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                       onPressed: downloading ? null : _start,
                       style: FilledButton.styleFrom(
                         minimumSize: const Size(130, 48),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: const StadiumBorder(),
                       ),
                       child: Text(_handedOff ? 'Install' : 'Update'),
                     ),

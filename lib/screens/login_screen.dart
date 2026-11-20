@@ -125,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
             minimumSize: const Size.fromHeight(52),
             backgroundColor: brandGreen,
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: const StadiumBorder(),
             elevation: 0,
           ),
           child: _loading
@@ -200,7 +200,7 @@ class AuthScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: brandGreen,
-      appBar: AppBar(elevation: 0, scrolledUnderElevation: 0, actions: const [ThemeToggle()]),
+      appBar: AppBar(foregroundColor: Colors.white, actions: const [ThemeToggle()]),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -226,7 +226,9 @@ class AuthScaffold extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  // Solid, not glass: it sits on the plain green background.
+                  color: context.isDark ? const Color(0xFF1C2320) : Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                   child: AnimatedSize(
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeOutCubic,
@@ -282,7 +284,7 @@ class ErrorBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: dark ? const Color(0xFF3B1414) : const Color(0xFFFEF2F2),
         border: Border.all(color: dark ? const Color(0xFF7F1D1D) : const Color(0xFFFECACA)),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Text(message, style: TextStyle(color: dark ? const Color(0xFFFCA5A5) : const Color(0xFFB91C1C))),
     );

@@ -11,6 +11,7 @@ import 'screens/user_home.dart';
 import 'services/auth_service.dart';
 import 'services/notifier.dart';
 import 'theme.dart';
+import 'widgets/theme_reveal.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,7 +47,9 @@ class MyRecoverApp extends StatelessWidget {
         theme: buildTheme(Brightness.light),
         darkTheme: buildTheme(Brightness.dark),
         themeMode: mode,
-        themeAnimationDuration: const Duration(milliseconds: 350),
+        // The circular reveal (ThemeReveal) animates theme changes instead.
+        themeAnimationDuration: Duration.zero,
+        builder: (context, child) => ThemeReveal(child: child!),
         // iOS rubber-band overscroll everywhere.
         scrollBehavior: const MaterialScrollBehavior().copyWith(physics: const BouncingScrollPhysics()),
         home: setupError != null ? _SetupErrorScreen(error: setupError!) : const AuthGate(),

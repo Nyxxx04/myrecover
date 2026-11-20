@@ -8,6 +8,7 @@ import '../services/recommender.dart';
 import '../services/search_history.dart';
 import '../theme.dart';
 import 'animations.dart';
+import 'glass.dart';
 
 /// Streams items with a search box and the All / Lost / Found filter chips.
 ///
@@ -147,6 +148,10 @@ class _FilteredItemListState extends State<FilteredItemList> {
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(vertical: 12),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(30),
+                borderSide: BorderSide(color: context.isDark ? Colors.white12 : Colors.black12),
+              ),
             ),
           ),
         ),
@@ -277,7 +282,7 @@ class _FilteredItemListState extends State<FilteredItemList> {
 
     return ListView.builder(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, GlassNavBar.clearance),
       itemCount: entries.length,
       itemBuilder: (context, i) {
         final entry = entries[i];

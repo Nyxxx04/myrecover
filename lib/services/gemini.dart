@@ -15,9 +15,13 @@ class AiException implements Exception {
 
 /// Minimal Gemini client that always returns JSON matching a schema. Gemini
 /// models read text and photos, so every request can include images. Falls
-/// through [geminiModels] when a model is overloaded, rate limited or unavailable.
+/// through [geminiModels] when a model is overloaded, rate limited or
+/// unavailable. If Gemini fails or takes too long, Groq answers instead.
 class Gemini {
   static const _retryable = {404, 429, 500, 502, 503, 504};
+
+  /// Kept back from the budget for Groq, after Gemini has had its turn.
+  static const _groqTime = Duration(seconds: 15);
 
   /// Models that recently failed (rate limited / overloaded) are skipped until
   /// this time, so each request doesn't wait on them again.
@@ -58,7 +62,12 @@ class Gemini {
     if (geminiApiKey.isEmpty || geminiApiKey.startsWith('PASTE')) {
       throw AiException('AI is not set up yet (add your Gemini key in lib/ai_config.dart).');
     }
-    return await _askGemini(system, parts, schema, DateTime.now().add(budget), thinkingLevel) ??
+    // Gemini gets the budget minus Groq's share, but at least 12 seconds.
+    final geminiTime = budget - _groqTime < const Duration(seconds: 12)
+        ? const Duration(seconds: 12)
+        : budget - _groqTime;
+    return await _askGemini(system, parts, schema, DateTime.now().add(geminiTime), thinkingLevel) ??
+        await _askGroq(system, parts, schema) ??
         (throw AiException('The AI service is busy right now. Please try again in a moment.'));
   }
 
@@ -129,5 +138,53 @@ class Gemini {
       }
     }
     return null;
+  }
+
+  /// Null when Groq can't answer either (no key, rate limited, slow, or output
+  /// missing fields).
+  static Future<Map<String, dynamic>?> _askGroq(
+    String system,
+    List<Map<String, dynamic>> parts,
+    Map<String, dynamic> schema,
+  ) async {
+    if (groqApiKey.isEmpty || groqApiKey.startsWith('PASTE')) return null;
+    final content = [
+      for (final part in parts)
+        if (part['inlineData'] case {'mimeType': final mime, 'data': final data})
+          {
+            'type': 'image_url',
+            'image_url': {'url': 'data:$mime;base64,$data'},
+          }
+        else
+          {'type': 'text', 'text': part['text']},
+    ];
+    final required = (schema['required'] as List?)?.cast<String>() ?? const <String>[];
+    try {
+      final res = await http
+          .post(
+            Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
+            headers: {'Authorization': 'Bearer $groqApiKey', 'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'model': groqModel,
+              'temperature': 0.2,
+              'response_format': {'type': 'json_object'},
+              'messages': [
+                {
+                  'role': 'system',
+                  'content': '$system\n\nReply only with JSON matching this schema:\n${jsonEncode(schema)}',
+                },
+                {'role': 'user', 'content': content},
+              ],
+            }),
+          )
+          .timeout(_groqTime);
+      if (res.statusCode != 200) return null;
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      final out = jsonDecode(data['choices'][0]['message']['content'] as String) as Map<String, dynamic>;
+      // Groq only promises valid JSON, not the schema.
+      return required.every(out.containsKey) ? out : null;
+    } catch (_) {
+      return null;
+    }
   }
 }

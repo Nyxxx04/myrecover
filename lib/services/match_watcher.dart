@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/item.dart';
 import 'ai_service.dart';
 import 'claim_service.dart';
 import 'item_service.dart';
@@ -85,10 +84,15 @@ class MatchWatcher {
       for (final m in matches.where((m) => m.score >= notifyAtScore)) {
         final other = byId[m.id];
         if (other == null) continue;
+        // The key ends with the other item's id, so the inbox can open it.
         await Notifier.show(
           'match:${mine.id}:${other.id}',
-          '✨ ${m.score}% match for your ${mine.title}',
-          '${_label(other)}: ${other.title}. ${m.reason}',
+          mine.isLost ? '👀 This might be yours!' : '🔎 This might be its owner',
+          mine.isLost
+              ? 'Someone found a ${other.title} that looks like your lost ${mine.title} (${m.score}% match). '
+                    'Open Notifications to see it and claim it.'
+              : 'Someone lost a ${other.title} that looks like the ${mine.title} you found (${m.score}% match). '
+                    'Open Notifications to see it.',
         );
       }
     }
@@ -167,6 +171,4 @@ class MatchWatcher {
       await notice.reference.delete(); // shown once; no need to keep it
     }
   }
-
-  static String _label(Item i) => i.isLost ? 'Lost report' : 'Found report';
 }

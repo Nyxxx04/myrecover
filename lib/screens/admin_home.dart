@@ -18,6 +18,7 @@ import 'admin_edit_screen.dart';
 import 'item_form.dart';
 import '../widgets/animations.dart';
 import '../widgets/app_menu.dart';
+import '../widgets/glass.dart';
 
 class AdminHome extends StatefulWidget {
   const AdminHome({super.key, required this.user});
@@ -94,93 +95,100 @@ class _AdminHomeState extends State<AdminHome> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('MyRecover Admin'),
-        actions: [
-          Center(
-            child: Text(widget.user.username, style: const TextStyle(color: Colors.white70)),
-          ),
-          AppMenu(uid: widget.user.uid),
-        ],
-      ),
-      body: FadeIndexedStack(
-        index: _tab,
-        children: [
-          _Dashboard(stream: _statsItems, returned: _returnedCount),
-          FilteredItemList(
-            stream: _manageItems,
-            aiSearch: true,
-            emptyText: 'No items yet',
-            header: PressScale(
-              child: OutlinedButton.icon(
-                onPressed: () => showModeration(context),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(46),
-                  foregroundColor: Colors.deepOrange,
-                  side: const BorderSide(color: Colors.deepOrange),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                icon: const Icon(Icons.policy_outlined),
-                label: const Text('Check for fake reports'),
+    return GlassBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        extendBody: true,
+        appBar: AppBar(
+          title: const Text('MyRecover Admin'),
+          actions: [
+            Center(
+              child: Text(
+                widget.user.username,
+                style: TextStyle(color: context.mutedText, fontWeight: FontWeight.w500),
               ),
             ),
-            itemBuilder: (context, item) => ItemCard(
-              item: item,
-              showReporter: true,
-              showStatus: true,
-              actions: [
-                TextButton.icon(
-                  onPressed: () =>
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => AdminEditScreen(item: item))),
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  label: const Text('Edit'),
+            AppMenu(user: widget.user),
+          ],
+        ),
+        body: FadeIndexedStack(
+          index: _tab,
+          children: [
+            _Dashboard(stream: _statsItems, returned: _returnedCount),
+            FilteredItemList(
+              stream: _manageItems,
+              aiSearch: true,
+              emptyText: 'No items yet',
+              header: PressScale(
+                child: OutlinedButton.icon(
+                  onPressed: () => showModeration(context),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(46),
+                    foregroundColor: Colors.deepOrange,
+                    side: const BorderSide(color: Colors.deepOrange),
+                    shape: const StadiumBorder(),
+                  ),
+                  icon: const Icon(Icons.policy_outlined),
+                  label: const Text('Check for fake reports'),
                 ),
-                TextButton.icon(
-                  onPressed: () => _delete(item),
-                  style: TextButton.styleFrom(foregroundColor: Colors.red),
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('Delete'),
-                ),
-              ],
-            ),
-          ),
-          AdminClaims(claims: _claims, items: _claimItems),
-        ],
-      ),
-      floatingActionButton: _tab == 1
-          ? FloatingActionButton.extended(
-              onPressed: _addItem,
-              icon: const Icon(Icons.add),
-              label: const Text('Add Item'),
-            )
-          : null,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tab,
-        onDestinationSelected: (i) => setState(() => _tab = i),
-        destinations: [
-          const NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
-          const NavigationDestination(icon: Icon(Icons.list_alt), label: 'Manage'),
-          NavigationDestination(
-            // Claims awaiting a decision on reports that are still open.
-            icon: StreamBuilder<List<Item>>(
-              stream: _badgeItems,
-              builder: (context, items) => StreamBuilder<List<Claim>>(
-                stream: _claims,
-                builder: (context, claims) {
-                  final open = {for (final i in items.data ?? <Item>[]) i.id};
-                  final count = (claims.data ?? []).where((c) => c.awaitsAdmin && open.contains(c.itemId)).length;
-                  return Badge(
-                    isLabelVisible: count > 0,
-                    label: Text('$count'),
-                    child: const Icon(Icons.shield_outlined),
-                  );
-                },
+              ),
+              itemBuilder: (context, item) => ItemCard(
+                item: item,
+                showReporter: true,
+                showStatus: true,
+                actions: [
+                  TextButton.icon(
+                    onPressed: () =>
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => AdminEditScreen(item: item))),
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('Edit'),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _delete(item),
+                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('Delete'),
+                  ),
+                ],
               ),
             ),
-            label: 'Claims',
-          ),
-        ],
+            AdminClaims(claims: _claims, items: _claimItems),
+          ],
+        ),
+        floatingActionButton: _tab == 1
+            ? FloatingActionButton.extended(
+                onPressed: _addItem,
+                icon: const Icon(Icons.add),
+                label: const Text('Add Item'),
+              )
+            : null,
+        bottomNavigationBar: GlassNavBar(
+          index: _tab,
+          onTap: (i) => setState(() => _tab = i),
+          items: [
+            const GlassNavItem(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
+            const GlassNavItem(icon: Icon(Icons.list_alt), label: 'Manage'),
+            GlassNavItem(
+              // Claims awaiting a decision on reports that are still open.
+              icon: StreamBuilder<List<Item>>(
+                stream: _badgeItems,
+                builder: (context, items) => StreamBuilder<List<Claim>>(
+                  stream: _claims,
+                  builder: (context, claims) {
+                    final open = {for (final i in items.data ?? <Item>[]) i.id};
+                    final count = (claims.data ?? []).where((c) => c.awaitsAdmin && open.contains(c.itemId)).length;
+                    return Badge(
+                      isLabelVisible: count > 0,
+                      label: Text('$count'),
+                      child: const Icon(Icons.shield_outlined),
+                    );
+                  },
+                ),
+              ),
+              label: 'Claims',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -213,7 +221,7 @@ class _Dashboard extends StatelessWidget {
               ('Total Active', 'lost + found', items.length, context.brandText),
             ];
             return ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, GlassNavBar.clearance),
               children: [
                 GridView.count(
                   shrinkWrap: true,
@@ -227,7 +235,6 @@ class _Dashboard extends StatelessWidget {
                       AnimatedEntry(
                         index: i,
                         child: Card(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           child: Padding(
                             padding: const EdgeInsets.all(16),
                             child: Column(
@@ -280,7 +287,6 @@ class _BreakdownCard extends StatelessWidget {
     final total = lost + found + returned;
 
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

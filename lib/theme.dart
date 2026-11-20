@@ -1,6 +1,9 @@
 import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'widgets/theme_reveal.dart';
 
 const brandGreen = Color(0xFF1D4E3E);
 const brandGreenLight = Color(0xFF7DD3AE);
@@ -35,15 +38,23 @@ Future<void> loadThemeMode() async {
   }
 }
 
-/// Switches to the opposite of what is on screen. Landing back on the phone's
-/// own setting returns to following the phone.
+/// Switches to the opposite of what is on screen, revealed as a circle that
+/// grows from [context]'s widget. Landing back on the phone's own setting
+/// returns to following the phone.
 Future<void> toggleThemeMode(BuildContext context) async {
   final dark = !context.isDark;
   final phoneDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-  themeMode.value = dark == phoneDark ? ThemeMode.system : (dark ? ThemeMode.dark : ThemeMode.light);
+  final mode = dark == phoneDark ? ThemeMode.system : (dark ? ThemeMode.dark : ThemeMode.light);
+  final box = context.findRenderObject() as RenderBox?;
+  final center = box != null && box.hasSize
+      ? box.localToGlobal(box.size.center(Offset.zero))
+      : Offset(MediaQuery.sizeOf(context).width, 0);
+  final save = SharedPreferences.getInstance().then(
+    (prefs) => dark == phoneDark ? prefs.remove(_darkModeKey) : prefs.setBool(_darkModeKey, dark),
+  );
+  await ThemeReveal.run(center, () => themeMode.value = mode);
   try {
-    final prefs = await SharedPreferences.getInstance();
-    dark == phoneDark ? await prefs.remove(_darkModeKey) : await prefs.setBool(_darkModeKey, dark);
+    await save;
   } catch (_) {
     // The switch still applies for this session.
   }
@@ -74,6 +85,12 @@ class ThemeToggle extends StatelessWidget {
   );
 }
 
+/// Thin light edge on glass surfaces.
+Color glassEdge(bool dark) => dark ? Colors.white.withValues(alpha: 0.10) : Colors.white.withValues(alpha: 0.9);
+
+/// Translucent card fill that lets the background glow through.
+Color glassFill(bool dark) => dark ? Colors.white.withValues(alpha: 0.06) : Colors.white.withValues(alpha: 0.72);
+
 ThemeData buildTheme(Brightness brightness) {
   final dark = brightness == Brightness.dark;
   final surface = dark ? const Color(0xFF1C2320) : Colors.white;
@@ -82,6 +99,8 @@ ThemeData buildTheme(Brightness brightness) {
     brightness: brightness,
     primary: dark ? brandGreenLight : brandGreen,
   );
+  final brand = dark ? brandGreenLight : brandGreen;
+  const pill = StadiumBorder();
   return ThemeData(
     colorScheme: scheme,
     useMaterial3: true,
@@ -96,22 +115,53 @@ ThemeData buildTheme(Brightness brightness) {
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
     ),
-    scaffoldBackgroundColor: dark ? const Color(0xFF111614) : const Color(0xFFF3F4F6),
-    appBarTheme: const AppBarTheme(backgroundColor: brandGreen, foregroundColor: Colors.white),
+    scaffoldBackgroundColor: dark ? const Color(0xFF0C1310) : const Color(0xFFEFF4F1),
+    appBarTheme: AppBarTheme(
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      scrolledUnderElevation: 0,
+      elevation: 0,
+      foregroundColor: brand,
+      // Dark status bar icons on the light background, light ones in dark mode.
+      systemOverlayStyle: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      titleTextStyle: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: brand, letterSpacing: -0.3),
+    ),
     inputDecorationTheme: InputDecorationTheme(
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(18)),
       filled: true,
-      fillColor: surface,
+      fillColor: dark ? Colors.white.withValues(alpha: 0.06) : surface.withValues(alpha: 0.8),
     ),
     filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        minimumSize: const Size.fromHeight(48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: pill),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(shape: pill)),
+    elevatedButtonTheme: ElevatedButtonThemeData(style: ElevatedButton.styleFrom(shape: pill)),
+    textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(shape: pill)),
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(shape: pill),
+    chipTheme: ChipThemeData(
+      shape: pill,
+      side: BorderSide(color: dark ? Colors.white12 : Colors.black12),
+    ),
+    cardTheme: CardThemeData(
+      color: glassFill(dark),
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(26),
+        side: BorderSide(color: glassEdge(dark)),
       ),
     ),
-    cardTheme: CardThemeData(color: surface, elevation: 1),
+    dialogTheme: DialogThemeData(
+      backgroundColor: dark ? const Color(0xFF1A221F) : const Color(0xFFF9FBFA),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+    ),
+    popupMenuTheme: PopupMenuThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22))),
   );
 }
 

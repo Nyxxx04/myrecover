@@ -108,13 +108,26 @@ class AiService {
   /// Photo → report fields, plus a privacy check for IDs/cards.
   Future<AiDescription> describe(Uint8List jpeg) async => AiDescription(
     await Gemini.json(
-      'You help people report lost and found items at a Malaysian university campus. Look at the photo and describe the main item so it can be recognised by its owner.\n'
-      '- title: short name with colour and brand if visible, e.g. "Black JanSport backpack".\n'
-      '- category: one of ${itemCategories.join(', ')}.\n'
-      "- description: 1-2 plain sentences with distinguishing details (brand, stickers, damage, contents visible). Don't guess what isn't visible.\n"
+      'You help people report lost and found items at a Malaysian university campus. Identify the main item in the photo accurately so its owner can recognise it. Work in this order:\n'
+      '1. visible_text: copy any brand names, logos, model names or words you can read on the item, exactly as printed (empty if none).\n'
+      '2. clues: up to 4 short physical details that tell what the item is: material (glass, plastic, metal, fabric), shape, cap/lid type, nozzle, buttons, ports, straps, size compared with things around it.\n'
+      '3. item_type: the specific kind of object, decided from the text and clues, e.g. "perfume bottle", "water bottle", "power bank", "wireless earbuds case".\n'
+      'Be careful with items that look alike:\n'
+      '- Perfume / cologne bottle: thick heavy glass, a spray pump or a thin straw (dip tube) inside the liquid, a decorative metal or plastic cap, usually small (30-200 ml), often a fashion brand (BOSS, Hugo Boss, Dior, Chanel, Calvin Klein, Versace, Zara...). A screw-on or strap-attached cap does NOT make it a water bottle.\n'
+      '- Water bottle / tumbler: plastic or steel, larger, a drinking spout, straw lid, sports cap or handle, volume marks, sports/drinkware brands (Tupperware, Lock&Lock, Hydro Flask, Stanley...).\n'
+      '- Other look-alikes: power bank vs phone, earbuds case vs pill box or charger, wallet vs card holder vs purse, cosmetics (lipstick, compact, skincare) vs small gadgets.\n'
+      'If a brand is mainly known for one kind of product, use that to decide.\n'
+      '- title: short name built from item_type, with colour, and the brand only if it appears in visible_text, e.g. "Black backpack", "Clear perfume bottle". Never name a brand you cannot read in the photo.\n'
+      '- category: one of ${itemCategories.join(', ')}. Perfume, cosmetics, jewellery, watches, glasses, bags, wallets and bottles worn or carried as personal belongings go in Accessories; use Other only when nothing fits.\n'
+      '- description: 1-2 plain sentences with distinguishing details (brand, stickers, damage, contents visible). Don\'t guess what isn\'t visible.\n'
       '- sensitive: whether the photo shows personal data others could misuse - an identity card (IC/MyKad), passport, student/matric card, bank or credit card, or a readable document with personal details. Faces alone are not sensitive.',
       [Gemini.text('Describe this item.'), Gemini.image(base64Encode(jpeg))],
+      // Reading the text and clues before naming the item makes the models far
+      // less likely to mistake, say, a perfume bottle for a water bottle.
       _obj({
+        'visible_text': {'type': 'string', 'description': 'Brand names or words printed on the item, empty if none'},
+        'clues': _strList,
+        'item_type': _str,
         'title': _str,
         'category': {'type': 'string', 'enum': itemCategories},
         'color': {'type': 'string', 'description': 'Main colour in English, lowercase'},
@@ -212,8 +225,7 @@ class AiService {
         'verified': {'type': 'boolean'},
         'confidence': {
           'type': 'integer',
-          'description':
-              'How likely the claimant is the true owner, 0-100: 0 = answers contradict the secret, 100 = answers clearly match it. Not how sure you are of your verdict.',
+          'description': 'How likely the claimant is the true owner, 0-100: 0 = answers contradict the secret, 100 = answers clearly match it. Not how sure you are of your verdict.',
         },
         'feedback': _str,
       }),
@@ -248,21 +260,7 @@ class AiService {
       Gemini.text('Today is ${_date.format(DateTime.now())}. The reports, newest first:'),
       for (final i in recent) ...[
         Gemini.text(
-          '<item>${jsonEncode({
-            'id': i.id,
-            'type': i.type,
-            'title': i.title,
-            'category': i.category,
-            'description': i.description,
-            'location': i.location,
-            'event_date': _date.format(i.date),
-            'posted': i.createdAt == null ? '' : DateFormat('yyyy-MM-dd HH:mm').format(i.createdAt!),
-            'reporter': i.reporter,
-            'reporter_id': i.userId,
-            'reports_by_this_reporter': perReporter[i.userId],
-            'contact': i.contact,
-            'has_photo': i.imageBase64?.isNotEmpty ?? false,
-          })}</item>',
+          '<item>${jsonEncode({'id': i.id, 'type': i.type, 'title': i.title, 'category': i.category, 'description': i.description, 'location': i.location, 'event_date': _date.format(i.date), 'posted': i.createdAt == null ? '' : DateFormat('yyyy-MM-dd HH:mm').format(i.createdAt!), 'reporter': i.reporter, 'reporter_id': i.userId, 'reports_by_this_reporter': perReporter[i.userId], 'contact': i.contact, 'has_photo': i.imageBase64?.isNotEmpty ?? false})}</item>',
         ),
         if ((i.imageBase64?.isNotEmpty ?? false) && photos++ < _moderatePhotos) ...[
           Gemini.text('Photo of ${i.id}:'),

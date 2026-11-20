@@ -281,7 +281,7 @@ class HandoverCard extends StatelessWidget {
     decoration: BoxDecoration(
       color: context.isDark ? const Color(0xFF12352A) : const Color(0xFFECFDF5),
       border: Border.all(color: context.isDark ? const Color(0xFF1F6F54) : const Color(0xFFA7F3D0)),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(18),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -538,7 +538,7 @@ class _HandoverQr extends StatelessWidget {
     children: [
       Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
         child: QrImageView(data: code, size: 190, backgroundColor: Colors.white),
       ),
       const SizedBox(height: 10),
@@ -621,7 +621,7 @@ class _AiInsightsCardState extends State<AiInsightsCard> {
     final insights = _insights;
     return Card(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(22),
         side: BorderSide(color: context.aiText.withValues(alpha: 0.3)),
       ),
       child: Padding(
@@ -794,7 +794,7 @@ class _ModerationSheetState extends State<_ModerationSheet> {
               index: i,
               child: Card(
                 margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Column(
@@ -817,7 +817,7 @@ class _ModerationSheetState extends State<_ModerationSheet> {
                       const SizedBox(height: 8),
                       if (item.imageBytes != null) ...[
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(16),
                           child: Image.memory(item.imageBytes!, height: 120, width: double.infinity, fit: BoxFit.cover),
                         ),
                         const SizedBox(height: 8),

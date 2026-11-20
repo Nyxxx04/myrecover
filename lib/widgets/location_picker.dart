@@ -142,7 +142,7 @@ class _LocationPickerState extends State<LocationPicker> {
         ),
         const SizedBox(height: 8),
         ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(18),
           child: SizedBox(
             height: 240,
             child: FlutterMap(

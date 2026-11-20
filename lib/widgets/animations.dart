@@ -6,8 +6,10 @@ const motionFast = Duration(milliseconds: 150);
 const motionMedium = Duration(milliseconds: 300);
 const motionSlow = Duration(milliseconds: 700);
 
-/// IndexedStack that fades/slides the newly selected child in. Every child
-/// keeps the same wrapper so switching tabs never loses their state.
+/// Tab pages that switch with a soft sideways drift ("shared axis"): the old
+/// page fades out while drifting a little away, and the new one fades in while
+/// drifting in from the side of the tab it is on (right when moving right).
+/// Every child stays alive, so tabs keep their state.
 class FadeIndexedStack extends StatefulWidget {
   const FadeIndexedStack({super.key, required this.index, required this.children});
 
@@ -19,14 +21,23 @@ class FadeIndexedStack extends StatefulWidget {
 }
 
 class _FadeIndexedStackState extends State<FadeIndexedStack> with SingleTickerProviderStateMixin {
-  late final _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 550), value: 1);
-  late final _curve = CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic);
-  late final _slide = Tween(begin: const Offset(0, 0.012), end: Offset.zero).animate(_curve);
+  late final _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 380), value: 1);
+
+  /// How far the pages drift, in logical pixels.
+  static const _drift = 36.0;
+  late int _previous = widget.index;
+
+  /// 1 when moving right, -1 when moving left.
+  double _direction = 1;
 
   @override
   void didUpdateWidget(FadeIndexedStack old) {
     super.didUpdateWidget(old);
-    if (old.index != widget.index) _controller.forward(from: 0);
+    if (old.index != widget.index) {
+      _previous = old.index;
+      _direction = widget.index > old.index ? 1 : -1;
+      _controller.forward(from: 0);
+    }
   }
 
   @override
@@ -37,20 +48,38 @@ class _FadeIndexedStackState extends State<FadeIndexedStack> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
-    return IndexedStack(
-      index: widget.index,
-      children: [
-        for (var i = 0; i < widget.children.length; i++)
-          FadeTransition(
-            opacity: i == widget.index ? _curve : kAlwaysCompleteAnimation,
-            child: SlideTransition(
-              position: i == widget.index ? _slide : const AlwaysStoppedAnimation(Offset.zero),
-              child: widget.children[i],
-            ),
-          ),
-      ],
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final sliding = _controller.isAnimating;
+        final t = _controller.value;
+        // The old page is gone in the first 40%; the new one fades in from 20%.
+        final out = Curves.easeIn.transform((t / 0.4).clamp(0.0, 1.0));
+        final inT = Curves.easeOutCubic.transform(((t - 0.2) / 0.8).clamp(0.0, 1.0));
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            for (var i = 0; i < widget.children.length; i++)
+              if (i == widget.index)
+                _page(i, visible: true, opacity: inT, dx: _direction * _drift * (1 - inT))
+              else
+                _page(i, visible: sliding && i == _previous, opacity: 1 - out, dx: -_direction * _drift * out),
+          ],
+        );
+      },
     );
   }
+
+  Widget _page(int i, {required bool visible, required double opacity, required double dx}) => Offstage(
+    offstage: !visible,
+    child: TickerMode(
+      enabled: visible,
+      child: Opacity(
+        opacity: opacity,
+        child: Transform.translate(offset: Offset(dx, 0), child: widget.children[i]),
+      ),
+    ),
+  );
 }
 
 /// Fades and slides its child up the first time it appears. [index] staggers

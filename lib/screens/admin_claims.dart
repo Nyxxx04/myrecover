@@ -8,6 +8,7 @@ import '../theme.dart';
 import '../widgets/animations.dart';
 import 'admin_edit_screen.dart';
 import 'handover_scan_screen.dart';
+import '../widgets/glass.dart';
 
 /// Admin review of ownership claims. Only the admin sees both the finder and
 /// the claimant; they never see each other.
@@ -187,7 +188,7 @@ class _AdminClaimsState extends State<AdminClaims> {
           }
           var index = 0;
           return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, GlassNavBar.clearance),
             children: [
               OutlinedButton.icon(
                 onPressed: () =>
@@ -272,7 +273,6 @@ class _ClaimCard extends StatelessWidget {
     final aiPassed = claim.isVerified || (claim.isApproved && claim.confidence >= 60);
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -315,7 +315,7 @@ class _ClaimCard extends StatelessWidget {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: foundColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
                   'Owner already identified: ${owner!.claimantName} was approved for this item.',

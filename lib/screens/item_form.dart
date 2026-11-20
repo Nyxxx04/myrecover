@@ -15,6 +15,7 @@ import '../widgets/ai_widgets.dart';
 import '../widgets/animations.dart';
 import '../theme.dart';
 import '../widgets/location_picker.dart';
+import '../widgets/glass.dart';
 
 /// Photos are stored inside the Firestore document (1 MiB limit), so they
 /// are resized and compressed when picked.
@@ -244,7 +245,7 @@ class _ItemFormState extends State<ItemForm> {
     return Form(
       key: _form,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, GlassNavBar.clearance),
         children: [
           SegmentedButton<String>(
             segments: const [
@@ -350,7 +351,7 @@ class _ItemFormState extends State<ItemForm> {
                   child: Stack(
                     children: [
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(18),
                         child: Image.memory(
                           _image!,
                           height: 200,
