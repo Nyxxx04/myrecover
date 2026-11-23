@@ -12,6 +12,7 @@ class ItemCard extends StatelessWidget {
     required this.item,
     this.showReporter = false,
     this.showStatus = false,
+    this.showLocation = false,
     this.actions = const [],
     this.footer,
   });
@@ -19,6 +20,10 @@ class ItemCard extends StatelessWidget {
   final Item item;
   final bool showReporter;
   final bool showStatus;
+
+  /// Where the item was lost/found. Private: only the reporter and the admin
+  /// see it, so nobody else can go and pick the item up first.
+  final bool showLocation;
   final List<Widget> actions;
 
   /// Extra content above the actions (e.g. AI claim info).
@@ -64,7 +69,11 @@ class ItemCard extends StatelessWidget {
                 const SizedBox(height: 10),
                 Text(item.description, style: text.bodyMedium),
                 const SizedBox(height: 10),
-                _detail('📍 Location', item.location),
+                if (showLocation)
+                  _detail(
+                    '📍 Location',
+                    item.locationDetails.isEmpty ? item.location : '${item.locationDetails} · ${item.location}',
+                  ),
                 _detail('📅 Date', _dateFmt.format(item.date)),
                 _detail('🏷️ Category', item.category),
                 if (showReporter) ...[_detail('📧 Contact', item.contact), _detail('👤 Reporter', item.reporter)],

@@ -27,7 +27,13 @@ class ThemeReveal extends StatefulWidget {
 
 class _ThemeRevealState extends State<ThemeReveal> with SingleTickerProviderStateMixin {
   final _boundary = GlobalKey();
-  late final _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 850));
+  // `preserve`: keep the full reveal even when the phone's battery saver turns
+  // animations off (otherwise it would be cut to 5% of its length).
+  late final _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 850),
+    animationBehavior: AnimationBehavior.preserve,
+  );
   late final _curve = CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic);
   ui.Image? _snapshot;
   Offset _center = Offset.zero;

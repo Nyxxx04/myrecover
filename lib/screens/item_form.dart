@@ -39,6 +39,7 @@ class _ItemFormState extends State<ItemForm> {
   final _title = TextEditingController();
   final _description = TextEditingController();
   final _location = TextEditingController();
+  final _locationDetails = TextEditingController();
   final _secret = TextEditingController();
   String _type = 'lost';
   String _category = itemCategories.first;
@@ -52,7 +53,7 @@ class _ItemFormState extends State<ItemForm> {
 
   @override
   void dispose() {
-    for (final c in [_title, _description, _location, _secret]) {
+    for (final c in [_title, _description, _location, _locationDetails, _secret]) {
       c.dispose();
     }
     super.dispose();
@@ -86,7 +87,7 @@ class _ItemFormState extends State<ItemForm> {
         if ((overwrite || !_categoryTouched) && itemCategories.contains(d.category)) _category = d.category;
         _aiFilled = true;
       });
-      if (d.sensitive) await _privacyPrompt(d.sensitiveReason, bytes);
+      if (d.sensitive) await _autoBlur(d.sensitiveReason, bytes);
     } on AiException catch (e) {
       if (mounted) _toast('AI could not read the photo: ${e.message}');
     } finally {
@@ -94,30 +95,13 @@ class _ItemFormState extends State<ItemForm> {
     }
   }
 
-  Future<void> _privacyPrompt(String reason, Uint8List bytes) async {
-    final choice = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        icon: const Icon(Icons.privacy_tip_outlined, color: Colors.red, size: 36),
-        title: const Text('Private details in photo'),
-        content: Text(
-          '${reason.isEmpty ? 'This photo may show an ID or card number.' : reason}\n\n'
-          'Everyone using the app can see this photo. We recommend blurring it.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, 'remove'), child: const Text('Remove photo')),
-          TextButton(onPressed: () => Navigator.pop(context, 'keep'), child: const Text('Keep')),
-          FilledButton(onPressed: () => Navigator.pop(context, 'blur'), child: const Text('Blur photo')),
-        ],
-      ),
-    );
-    if (!mounted || !identical(_image, bytes)) return;
-    if (choice == 'blur') {
-      final blurred = await blurSensitivePhoto(bytes);
-      if (mounted) setState(() => _image = blurred);
-    } else if (choice == 'remove') {
-      _removePhoto();
-    }
+  /// ID, student and bank cards are blurred straight away: everyone using the
+  /// app can see report photos, so there is nothing to ask.
+  Future<void> _autoBlur(String reason, Uint8List bytes) async {
+    final blurred = await blurSensitivePhoto(bytes);
+    if (!mounted || !identical(_image, bytes)) return; // photo changed meanwhile
+    setState(() => _image = blurred);
+    _toast('🔒 ${reason.isEmpty ? 'Private card details found.' : reason} The photo was blurred to protect them.');
   }
 
   /// The photo's details go with it, so a new photo starts from a clean form.
@@ -144,6 +128,11 @@ class _ItemFormState extends State<ItemForm> {
   }
 
   Future<void> _submit() async {
+    // The photo check may still blur a card; never save the photo before it ends.
+    if (_aiBusy) {
+      _toast('One moment: AI is still checking the photo.');
+      return;
+    }
     if (!_form.currentState!.validate()) return;
     if (_date == null) {
       _toast('The date field is required.');
@@ -151,13 +140,20 @@ class _ItemFormState extends State<ItemForm> {
     }
     setState(() => _saving = true);
     try {
-      // For found items with a secret detail, AI writes the questions claimants
-      // must answer; the secret itself is stored where only the finder can read it.
+      // For found items with a secret detail or exact spot, AI writes the
+      // questions claimants must answer; the secret is stored where only the
+      // finder and the admin can read it.
       final secret = _type == 'found' ? _secret.text.trim() : '';
+      final details = _locationDetails.text.trim();
       var questions = <String>[];
-      if (secret.isNotEmpty) {
+      if (secret.isNotEmpty || (_type == 'found' && details.isNotEmpty)) {
         try {
-          questions = await AiService.instance.claimQuestions(_title.text.trim(), secret);
+          questions = await AiService.instance.claimQuestions(
+            _title.text.trim(),
+            secret,
+            _location.text.trim(),
+            details,
+          );
         } on AiException catch (e) {
           _toast('Saving without claim protection: ${e.message}');
         }
@@ -171,6 +167,7 @@ class _ItemFormState extends State<ItemForm> {
           category: _category,
           description: _description.text.trim(),
           location: _location.text.trim(),
+          locationDetails: details,
           latitude: _point?.latitude,
           longitude: _point?.longitude,
           date: _date!,
@@ -186,7 +183,7 @@ class _ItemFormState extends State<ItemForm> {
 
       if (!mounted) return;
       _form.currentState!.reset();
-      for (final c in [_title, _description, _location, _secret]) {
+      for (final c in [_title, _description, _location, _locationDetails, _secret]) {
         c.clear();
       }
       setState(() {
@@ -291,6 +288,19 @@ class _ItemFormState extends State<ItemForm> {
             onPointChanged: (p) => setState(() => _point = p),
           ),
           gap,
+          TextFormField(
+            controller: _locationDetails,
+            maxLength: 150,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              labelText: 'Location details (optional)',
+              hintText: 'e.g. Anjung Siswa, near the bank',
+              helperText: 'Private: only you and the admin see this. For found items, AI also uses it to check claims.',
+              helperMaxLines: 2,
+              counterText: '',
+            ),
+          ),
+          gap,
           InkWell(
             onTap: _pickDate,
             child: InputDecorator(
@@ -363,10 +373,7 @@ class _ItemFormState extends State<ItemForm> {
                       Positioned(
                         top: 6,
                         right: 6,
-                        child: IconButton.filled(
-                          icon: const Icon(Icons.close),
-                          onPressed: _removePhoto,
-                        ),
+                        child: IconButton.filled(icon: const Icon(Icons.close), onPressed: _removePhoto),
                       ),
                     ],
                   ),
@@ -380,7 +387,10 @@ class _ItemFormState extends State<ItemForm> {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
                     children: [
-                      SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2, color: context.aiText)),
+                      SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: context.aiText),
+                      ),
                       const SizedBox(width: 10),
                       Text('✨ AI is reading your photo…', style: TextStyle(color: context.aiText)),
                     ],
@@ -393,7 +403,10 @@ class _ItemFormState extends State<ItemForm> {
                     Icon(Icons.auto_awesome, color: context.aiText, size: 18),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text('Details filled in by AI — please check them.', style: TextStyle(color: context.aiText)),
+                      child: Text(
+                        'Details filled in by AI — please check them.',
+                        style: TextStyle(color: context.aiText),
+                      ),
                     ),
                     TextButton(onPressed: () => _analyzePhoto(_image!, overwrite: true), child: const Text('Redo')),
                   ],

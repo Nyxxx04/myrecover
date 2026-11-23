@@ -21,7 +21,14 @@ class FadeIndexedStack extends StatefulWidget {
 }
 
 class _FadeIndexedStackState extends State<FadeIndexedStack> with SingleTickerProviderStateMixin {
-  late final _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 380), value: 1);
+  // `preserve`: many phones turn animations off in battery saver, which would
+  // otherwise cut this short fade to 5% of its length and make it look instant.
+  late final _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 380),
+    value: 1,
+    animationBehavior: AnimationBehavior.preserve,
+  );
 
   /// How far the pages drift, in logical pixels.
   static const _drift = 36.0;

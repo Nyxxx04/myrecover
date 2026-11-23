@@ -13,8 +13,7 @@ import '../theme.dart';
 class UpdateService {
   UpdateService._();
 
-  static const _latestRelease =
-      'https://api.github.com/repos/Nyxxx04/myrecover/releases/latest';
+  static const _latestRelease = 'https://api.github.com/repos/Nyxxx04/myrecover/releases/latest';
   static bool _checked = false;
 
   /// Shows the update dialog once per app launch when a newer release exists.
@@ -28,9 +27,7 @@ class UpdateService {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Theme.of(context).cardTheme.color,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
       sheetAnimationStyle: const AnimationStyle(
         duration: Duration(milliseconds: 450),
         curve: Curves.easeOutCubic,
@@ -48,41 +45,27 @@ class UpdateService {
 
   static Future<_Update?> _findUpdate() async {
     try {
-      final res = await http
-          .get(Uri.parse(_latestRelease))
-          .timeout(const Duration(seconds: 10));
+      final res = await http.get(Uri.parse(_latestRelease)).timeout(const Duration(seconds: 10));
       if (res.statusCode != 200) return null;
       final data = jsonDecode(res.body) as Map<String, dynamic>;
-      final latest = (data['tag_name'] as String? ?? '').replaceFirst(
-        RegExp('^v'),
-        '',
-      );
+      final latest = (data['tag_name'] as String? ?? '').replaceFirst(RegExp('^v'), '');
       final current = (await PackageInfo.fromPlatform()).version;
       if (!_isNewer(latest, current)) return null;
 
       final apks = [
         for (final a in data['assets'] as List? ?? const [])
-          if ((a['name'] as String).toLowerCase().endsWith('.apk'))
-            a as Map<String, dynamic>,
+          if ((a['name'] as String).toLowerCase().endsWith('.apk')) a as Map<String, dynamic>,
       ];
       if (apks.isEmpty) return null;
-      final apk = apks.firstWhere(
-        (a) => (a['name'] as String).contains('arm64'),
-        orElse: () => apks.first,
-      );
-      return _Update(
-        latest,
-        apk['browser_download_url'] as String,
-        (data['body'] as String? ?? '').trim(),
-      );
+      final apk = apks.firstWhere((a) => (a['name'] as String).contains('arm64'), orElse: () => apks.first);
+      return _Update(latest, apk['browser_download_url'] as String, (data['body'] as String? ?? '').trim());
     } catch (_) {
       return null; // offline or GitHub unreachable: just skip this time
     }
   }
 
   static bool _isNewer(String remote, String current) {
-    List<int> parts(String v) =>
-        v.split('.').map((p) => int.tryParse(p) ?? 0).toList();
+    List<int> parts(String v) => v.split('.').map((p) => int.tryParse(p) ?? 0).toList();
     final r = parts(remote), c = parts(current);
     for (var i = 0; i < 3; i++) {
       final rv = i < r.length ? r[i] : 0, cv = i < c.length ? c[i] : 0;
@@ -119,19 +102,13 @@ class _UpdateDialogState extends State<_UpdateDialog> {
       _error = null;
     });
     OtaUpdate()
-        .execute(
-          widget.update.apkUrl,
-          destinationFilename: 'MyRecover-${widget.update.version}.apk',
-        )
+        .execute(widget.update.apkUrl, destinationFilename: 'MyRecover-${widget.update.version}.apk')
         .listen(
           (event) {
             if (!mounted) return;
             switch (event.status) {
               case OtaStatus.DOWNLOADING:
-                setState(
-                  () => _progress =
-                      (double.tryParse(event.value ?? '') ?? 0) / 100,
-                );
+                setState(() => _progress = (double.tryParse(event.value ?? '') ?? 0) / 100);
               // Android's installer takes over. The dialog stays open: the first
               // time, Android asks for permission and drops the install, so the
               // user can tap Install again.
@@ -146,8 +123,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
               default:
                 setState(() {
                   _progress = null;
-                  _error =
-                      'Update failed (${event.status.name.toLowerCase().replaceAll('_', ' ')}). Try again.';
+                  _error = 'Update failed (${event.status.name.toLowerCase().replaceAll('_', ' ')}). Try again.';
                 });
             }
           },
@@ -218,19 +194,13 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                   children: [
                     OutlinedButton(
                       onPressed: downloading ? null : () => Navigator.of(context).pop(),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(130, 48),
-                        shape: const StadiumBorder(),
-                      ),
+                      style: OutlinedButton.styleFrom(minimumSize: const Size(130, 48), shape: const StadiumBorder()),
                       child: const Text('Later'),
                     ),
                     const SizedBox(width: 12),
                     FilledButton(
                       onPressed: downloading ? null : _start,
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(130, 48),
-                        shape: const StadiumBorder(),
-                      ),
+                      style: FilledButton.styleFrom(minimumSize: const Size(130, 48), shape: const StadiumBorder()),
                       child: Text(_handedOff ? 'Install' : 'Update'),
                     ),
                   ],
@@ -244,33 +214,27 @@ class _UpdateDialogState extends State<_UpdateDialog> {
   }
 
   List<Widget> _status(bool downloading) => [
-            if (downloading) ...[
-              const SizedBox(height: 8),
-              LinearProgressIndicator(
-                value: _progress == 0 ? null : _progress,
-                color: context.brandText,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Downloading… ${(_progress! * 100).round()}%',
-                style: const TextStyle(fontSize: 12),
-              ),
-            ],
-            if (_handedOff && !downloading && _error == null) ...[
-              const SizedBox(height: 12),
-              const Text(
-                'Tap Install on Android\'s prompt. If you just allowed MyRecover to install apps, tap Install again.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13),
-              ),
-            ],
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.red, fontSize: 13),
-              ),
-            ],
+    if (downloading) ...[
+      const SizedBox(height: 8),
+      LinearProgressIndicator(value: _progress == 0 ? null : _progress, color: context.brandText),
+      const SizedBox(height: 6),
+      Text('Downloading… ${(_progress! * 100).round()}%', style: const TextStyle(fontSize: 12)),
+    ],
+    if (_handedOff && !downloading && _error == null) ...[
+      const SizedBox(height: 12),
+      const Text(
+        'Tap Install on Android\'s prompt. If you just allowed MyRecover to install apps, tap Install again.',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 13),
+      ),
+    ],
+    if (_error != null) ...[
+      const SizedBox(height: 12),
+      Text(
+        _error!,
+        textAlign: TextAlign.center,
+        style: const TextStyle(color: Colors.red, fontSize: 13),
+      ),
+    ],
   ];
 }

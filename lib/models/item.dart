@@ -27,6 +27,7 @@ class Item {
     required this.date,
     required this.contact,
     required this.status,
+    this.locationDetails = '',
     this.latitude,
     this.longitude,
     this.imageBase64,
@@ -44,6 +45,10 @@ class Item {
   final String category;
   final String description;
   final String location;
+
+  /// Optional finer description of the spot, e.g. "Anjung Siswa, near the bank".
+  /// Private like [location]: only the reporter and the admin see it.
+  final String locationDetails;
   final double? latitude;
   final double? longitude;
   final DateTime date;
@@ -80,6 +85,7 @@ class Item {
       category: d['category'] as String? ?? 'Other',
       description: d['description'] as String? ?? '',
       location: d['location'] as String? ?? '',
+      locationDetails: d['locationDetails'] as String? ?? '',
       latitude: (d['latitude'] as num?)?.toDouble(),
       longitude: (d['longitude'] as num?)?.toDouble(),
       date: (d['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -104,6 +110,7 @@ class ItemDraft {
     required this.location,
     required this.date,
     required this.contact,
+    this.locationDetails = '',
     this.latitude,
     this.longitude,
     this.imageBase64,
@@ -115,6 +122,7 @@ class ItemDraft {
   final String category;
   final String description;
   final String location;
+  final String locationDetails;
   final double? latitude;
   final double? longitude;
   final DateTime date;

@@ -63,7 +63,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return AuthScaffold(
       title: _adminMode ? 'Admin login' : 'Welcome',
-      subtitle: _adminMode ? '' : (studentsOnly ? 'Sign in with your UiTM student Google account' : 'Sign in with your Google account'),
+      subtitle: _adminMode
+          ? ''
+          : (studentsOnly ? 'Sign in with your UiTM student Google account' : 'Sign in with your Google account'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -102,10 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     }),
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
-                child: Text(
-                  _adminMode ? 'Student sign-in' : 'Admin login',
-                  key: ValueKey(_adminMode),
-                ),
+                child: Text(_adminMode ? 'Student sign-in' : 'Admin login', key: ValueKey(_adminMode)),
               ),
             ),
           ),
@@ -129,7 +128,10 @@ class _LoginScreenState extends State<LoginScreen> {
             elevation: 0,
           ),
           child: _loading
-              ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              ? const SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
               : const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -235,31 +237,31 @@ class AuthScaffold extends StatelessWidget {
                     alignment: Alignment.topCenter,
                     clipBehavior: Clip.antiAlias,
                     child: Padding(
-                    padding: const EdgeInsets.all(22),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          title,
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.bold, color: context.brandText),
-                        ),
-                        const SizedBox(height: 4),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 250),
-                          child: subtitle.isEmpty
-                              ? const SizedBox(width: double.infinity)
-                              : Text(
-                                  subtitle,
-                                  key: ValueKey(subtitle),
-                                  style: const TextStyle(color: Colors.grey),
-                                ),
-                        ),
-                        const SizedBox(height: 20),
-                        child,
-                      ],
+                      padding: const EdgeInsets.all(22),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            title,
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.bold, color: context.brandText),
+                          ),
+                          const SizedBox(height: 4),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 250),
+                            child: subtitle.isEmpty
+                                ? const SizedBox(width: double.infinity)
+                                : Text(
+                                    subtitle,
+                                    key: ValueKey(subtitle),
+                                    style: const TextStyle(color: Colors.grey),
+                                  ),
+                          ),
+                          const SizedBox(height: 20),
+                          child,
+                        ],
+                      ),
                     ),
-                  ),
                   ),
                 ),
               ],

@@ -183,7 +183,7 @@ class AiService {
     }
     final res = await Gemini.json(
       'You match lost-and-found reports. For each candidate, estimate the probability (0-100) that it is the SAME physical object as the reported item. Compare type of object, colour, brand, distinguishing marks, photos, places and dates (an item can\'t be found before it was lost). Be strict: same category alone is not a match.\n'
-      'Return only candidates scoring 30 or more, best first, with a one-sentence reason a student would understand.\n'
+      'Return only candidates scoring 30 or more, best first, with a one-sentence reason a student would understand. Never name a place or location in the reason; locations are private.\n'
       '$_dataRule',
       parts,
       _obj({
@@ -204,28 +204,52 @@ class AiService {
   }
 
   /// Questions for claimants that check the finder's secret without revealing it.
-  Future<List<String>> claimQuestions(String itemTitle, String secret) async {
+  Future<List<String>> claimQuestions(String itemTitle, String secret, String location, String locationDetails) async {
     final res = await Gemini.json(
-      'A finder of a lost item wrote a secret detail that only the true owner should know. Write 2 short questions that the true owner could answer from memory, which check that detail. NEVER reveal or hint at the answer (no colours, names, numbers or words from the secret). Ask open questions, not yes/no.\n'
+      'A finder handed in a found item and gave private details that only the true owner should know: an optional secret detail, where it was found, and optional location details (the exact spot). '
+      'Write 2-3 short open questions the true owner could answer from memory:\n'
+      '- If there is a secret detail, 1-2 questions that check it.\n'
+      '- One question asking where exactly they lost it or last had it, so the answer can be compared with the place it was found.\n'
+      'NEVER reveal or hint at any answer: no colours, names, numbers, brands, buildings, places or words taken from the private details. Ask open questions, not yes/no.\n'
       '$_dataRule',
-      [Gemini.text('<item>Item: $itemTitle\nSecret detail: $secret</item>')],
+      [
+        Gemini.text(
+          '<item>Item: $itemTitle\nSecret detail: ${secret.isEmpty ? '(none)' : secret}\n'
+          'Found at: $location\nLocation details: ${locationDetails.isEmpty ? '(none)' : locationDetails}</item>',
+        ),
+      ],
       _obj({'questions': _strList}),
     );
     return List<String>.from(res['questions'] as List);
   }
 
-  /// Judges a claimant's answers against the secret (run on the finder's phone).
-  Future<AiClaimResult> judgeClaim(String itemTitle, String secret, List<Map<String, String>> answers) async {
+  /// Judges a claimant's answers against the private details (run on the admin's phone).
+  Future<AiClaimResult> judgeClaim(
+    String itemTitle,
+    String secret,
+    String location,
+    String locationDetails,
+    List<Map<String, String>> answers,
+  ) async {
     final qa = answers.map((a) => 'Q: ${a['question']}\nA: ${a['answer']}').join('\n');
     final res = await Gemini.json(
-      "Decide if a claimant is the true owner of a found item. Compare their answers with the finder's secret detail. Accept reasonable wording, synonyms and Malay/English differences; reject vague, guessed or contradicting answers. 'feedback' is a note for the campus admin who makes the final decision: one sentence explaining which answers matched or not. Do not address the claimant and do not suggest contacting or meeting the finder (items are handed over by the admin).\n"
+      "Decide if a claimant is the true owner of a found item. Compare their answers with the finder's private details: the secret detail and where the item was found. "
+      'Accept reasonable wording, synonyms and Malay/English differences; reject vague, guessed or contradicting answers. The secret detail weighs most. '
+      'For the place: owners often only know roughly where they lost something, so accept the same place, the same building or a nearby spot or route; a clearly different place counts against them. '
+      "'feedback' is a note for the campus admin who makes the final decision: one sentence explaining which answers matched or not. Do not address the claimant and do not suggest contacting or meeting the finder (items are handed over by the admin).\n"
       '$_dataRule',
-      [Gemini.text('<item>Item: $itemTitle\nSecret detail: $secret</item>\n<item>Claimant answers:\n$qa</item>')],
+      [
+        Gemini.text(
+          '<item>Item: $itemTitle\nSecret detail: ${secret.isEmpty ? '(none)' : secret}\n'
+          'Found at: $location\nLocation details: ${locationDetails.isEmpty ? '(none)' : locationDetails}</item>\n'
+          '<item>Claimant answers:\n$qa</item>',
+        ),
+      ],
       _obj({
         'verified': {'type': 'boolean'},
         'confidence': {
           'type': 'integer',
-          'description': 'How likely the claimant is the true owner, 0-100: 0 = answers contradict the secret, 100 = answers clearly match it. Not how sure you are of your verdict.',
+          'description': 'How likely the claimant is the true owner, 0-100: 0 = answers contradict the private details, 100 = answers clearly match them. Not how sure you are of your verdict.',
         },
         'feedback': _str,
       }),
@@ -311,7 +335,7 @@ class AiService {
   List<Map<String, dynamic>> _itemParts(Item i) => [
     Gemini.text(
       '<item>type: ${i.type}\ntitle: ${i.title}\ncategory: ${i.category}\ndescription: ${i.description}\n'
-      'location: ${i.location}\ndate: ${_date.format(i.date)}</item>',
+      'location: ${i.location}${i.locationDetails.isEmpty ? '' : ' (${i.locationDetails})'}\ndate: ${_date.format(i.date)}</item>',
     ),
     if (i.imageBase64 != null && i.imageBase64!.isNotEmpty) Gemini.image(i.imageBase64!),
   ];

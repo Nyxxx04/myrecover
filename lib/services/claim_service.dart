@@ -125,10 +125,17 @@ class ClaimService {
     for (final doc in pending.docs) {
       final claim = Claim.fromDoc(doc);
       // Owner already identified: the admin closes these from the Claims tab, no AI needed.
-      if ((await ItemService.instance.itemById(claim.itemId))?.claimStatus == 'claimed') continue;
+      final item = await ItemService.instance.itemById(claim.itemId);
+      if (item?.claimStatus == 'claimed') continue;
       final secret = await secretFor(claim.itemId);
       if (secret == null) continue;
-      final result = await AiService.instance.judgeClaim(claim.itemTitle, secret, claim.answers);
+      final result = await AiService.instance.judgeClaim(
+        claim.itemTitle,
+        secret,
+        item?.location ?? '',
+        item?.locationDetails ?? '',
+        claim.answers,
+      );
       await doc.reference.update({
         'status': result.verified ? 'verified' : 'rejected',
         'confidence': result.confidence,
@@ -203,10 +210,12 @@ class ClaimService {
 
     final startOfMonth = DateTime(now.year, now.month);
     final finished = await _claims.where('status', whereIn: ['approved', 'dismissed']).get();
-    final old = finished.docs.where((d) {
-      final created = (d.data()['createdAt'] as Timestamp?)?.toDate();
-      return created != null && created.isBefore(startOfMonth);
-    }).take(450);
+    final old = finished.docs
+        .where((d) {
+          final created = (d.data()['createdAt'] as Timestamp?)?.toDate();
+          return created != null && created.isBefore(startOfMonth);
+        })
+        .take(450);
 
     final batch = _db.batch();
     for (final doc in old) {

@@ -28,11 +28,12 @@ class InboxService {
   CollectionReference<Map<String, dynamic>> _inbox(String uid) =>
       FirebaseFirestore.instance.collection('users').doc(uid).collection('inbox');
 
-  Stream<List<InboxEntry>> entries(String uid) => _inbox(uid)
-      .orderBy('createdAt', descending: true)
-      .limit(_maxShown)
-      .snapshots()
-      .map((s) => s.docs.map(InboxEntry.fromDoc).toList());
+  Stream<List<InboxEntry>> entries(String uid) =>
+      _inbox(uid)
+          .orderBy('createdAt', descending: true)
+          .limit(_maxShown)
+          .snapshots()
+          .map((s) => s.docs.map(InboxEntry.fromDoc).toList());
 
   /// [key] is the notification's unique key, so a repeat replaces the entry.
   /// A failure here must never stop the phone notification or later checks.
@@ -40,12 +41,9 @@ class InboxService {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     try {
-      await _inbox(uid).doc(key).set({
-        'title': title,
-        'body': body,
-        'read': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      await _inbox(uid)
+          .doc(key)
+          .set({'title': title, 'body': body, 'read': false, 'createdAt': FieldValue.serverTimestamp()});
     } catch (e) {
       debugPrint('Inbox: could not save "$title": $e');
     }

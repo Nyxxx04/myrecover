@@ -49,6 +49,7 @@ class ItemService {
     'category': draft.category,
     'description': draft.description,
     'location': draft.location,
+    if (draft.locationDetails.isNotEmpty) 'locationDetails': draft.locationDetails,
     'latitude': draft.latitude,
     'longitude': draft.longitude,
     'date': Timestamp.fromDate(DateTime(draft.date.year, draft.date.month, draft.date.day)),
@@ -122,7 +123,10 @@ class ItemService {
       };
     }
     for (final c in claims.where((c) => c.data()['status'] == 'approved')) {
-      notices.putIfAbsent(c.data()['claimantUid'] as String, () => {'role': 'owner', 'itemTitle': c.data()['itemTitle']});
+      notices.putIfAbsent(
+        c.data()['claimantUid'] as String,
+        () => {'role': 'owner', 'itemTitle': c.data()['itemTitle']},
+      );
     }
     return notices;
   }

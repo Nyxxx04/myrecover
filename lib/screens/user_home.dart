@@ -96,6 +96,7 @@ class _UserHomeState extends State<UserHome> {
               emptyText: "You haven't reported any items yet",
               itemBuilder: (context, item) => ItemCard(
                 item: item,
+                showLocation: true, // their own report
                 footer: _claimFooter(item),
                 actions: [
                   TextButton.icon(

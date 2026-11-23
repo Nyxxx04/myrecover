@@ -135,6 +135,7 @@ class _AdminHomeState extends State<AdminHome> {
               itemBuilder: (context, item) => ItemCard(
                 item: item,
                 showReporter: true,
+                showLocation: true,
                 showStatus: true,
                 actions: [
                   TextButton.icon(

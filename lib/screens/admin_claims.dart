@@ -85,9 +85,8 @@ class _AdminClaimsState extends State<AdminClaims> {
     try {
       await ClaimService.instance.dismissAll(close);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${close.length} ${close.length == 1 ? 'claim' : 'claims'} closed.')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('${close.length} ${close.length == 1 ? 'claim' : 'claims'} closed.')));
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
@@ -191,8 +190,7 @@ class _AdminClaimsState extends State<AdminClaims> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, GlassNavBar.clearance),
             children: [
               OutlinedButton.icon(
-                onPressed: () =>
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const HandoverScanScreen())),
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HandoverScanScreen())),
                 style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
                 icon: const Icon(Icons.qr_code_scanner),
                 label: const Text('Scan handover QR'),
@@ -230,11 +228,7 @@ class _AdminClaimsState extends State<AdminClaims> {
                       item: itemsById[c.itemId],
                       busy: _busy.contains(c.id),
                       owner: c.isApproved ? null : approvedFor[c.itemId],
-                      onApprove: () => _decide(
-                        c,
-                        approve: true,
-                        others: [...?undecided[c.itemId]]..remove(c),
-                      ),
+                      onApprove: () => _decide(c, approve: true, others: [...?undecided[c.itemId]]..remove(c)),
                       onDismiss: () => _decide(c, approve: false),
                       onCloseRemaining: () => _closeRemaining(approvedFor[c.itemId]!, undecided[c.itemId] ?? [c]),
                     ),

@@ -542,10 +542,7 @@ class _HandoverQr extends StatelessWidget {
         child: QrImageView(data: code, size: 190, backgroundColor: Colors.white),
       ),
       const SizedBox(height: 10),
-      SelectableText(
-        code,
-        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 3),
-      ),
+      SelectableText(code, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 3)),
       const SizedBox(height: 4),
       Text(
         'Show this to the admin when you collect your item.',

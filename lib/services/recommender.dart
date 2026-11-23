@@ -5,7 +5,7 @@ import '../models/item.dart';
 /// Content-based search and recommendations using TF-IDF + cosine similarity.
 ///
 /// Every item becomes a weighted bag of words (title counts most, then
-/// category, then description/location). Words are normalised first:
+/// category, then description; location is private and left out). Words are normalised first:
 /// lowercased, plural "s" stripped, and synonyms (including common Malay
 /// words) folded together, so "beg hitam" matches "black backpack".
 class ItemRecommender {
@@ -21,7 +21,8 @@ class ItemRecommender {
       add(item.title, 3);
       add(item.category, 2);
       add(item.description, 1);
-      add(item.location, 0.5);
+      // Location is private, so it isn't searchable: a search for a place must
+      // not reveal which items were lost or found there.
       _termFreq[item.id] = tf;
       for (final t in tf.keys) {
         _docFreq[t] = (_docFreq[t] ?? 0) + 1;
