@@ -26,7 +26,10 @@ class UpdateService {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Theme.of(context).cardTheme.color,
+      // Solid, not glass: the list behind would show through the text.
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF1A221F)
+          : const Color(0xFFF9FBFA),
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
       sheetAnimationStyle: const AnimationStyle(
         duration: Duration(milliseconds: 450),
